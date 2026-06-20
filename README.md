@@ -83,6 +83,7 @@ For release measurements:
 ```bash
 xmake f -m release --yes --python="${PYTHON:-python3}"
 xmake build tenspec_forwarding_benchmark
+xmake build binary_size_libtorch_probe
 xmake build binary_size_tensor_probe
 ```
 
@@ -140,31 +141,34 @@ Release build, CPU tensors, 1 thread, 1000 iterations. Ratio is
 
 ### Symbol Growth Probe
 
-Debug/no-inline `binary_size_tensor_probe`, summarized with `nm -S`. This is a
-symbol-level proxy for wrapper code growth, not a whole-program raw-only binary
-comparison.
+Debug/no-inline `binary_size_libtorch_probe` and `binary_size_tensor_probe`,
+summarized with `scripts/nm_size_probe.sh debug`. Both probes print `16` and run
+the same high-level retain/add/unwrap/numel flow; the first uses only native
+`at::Tensor`, while the second routes the typed paths through Tenspec.
 
 | Symbol group | Bytes | Symbols | Interpretation |
 | --- | ---: | ---: | --- |
-| Raw probe functions | 221 | 4 | Direct `at::Tensor` helper functions. |
-| Typed probe functions | 322 | 6 | Equivalent Tenspec helper functions. |
-| Typed/raw project function ratio | 1.457x | - | Small absolute growth in this probe. |
-| Tensor-related symbols | 1018 | 14 | Wrapper methods and instantiated tensor helpers visible in the probe. |
-| Runtime shape check symbols | 373 | 2 | Runtime contract checks. |
-| dtype/device/layout match symbols | 353 | 3 | Runtime metadata predicates. |
+| Native probe functions | 486 | 9 | Native `at::Tensor` equivalent helper functions. |
+| Typed probe functions | 768 | 9 | Tenspec helper functions with the same call flow. |
+| Typed/native probe function ratio | 1.580x | - | +282 bytes in the noinline helper layer. |
+| Tensor wrapper nm records | 748 | 13 | `Tensor`/`TensorBase` records, including ABI alias records. |
+| Tensor wrapper unique code addresses | 479 | 7 | Same wrapper set folded by address; this is the better code-entity count. |
+| Runtime check symbols | 700 | 5 | Runtime shape/dtype/device/layout contract checks. |
 
 ### Binary Size Snapshot
 
 | Target | Mode | File size | `.text` | `.data` | `.bss` | `size` total |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | `tenspec_forwarding_benchmark` | release | 51 KiB | 42,927 | 1,480 | 200 | 44,607 |
+| `binary_size_libtorch_probe` | release | 59 KiB | 48,394 | 1,376 | 200 | 49,970 |
 | `binary_size_tensor_probe` | release | 63 KiB | 49,707 | 1,400 | 200 | 51,307 |
-| `tenspec_tensor_arithmetic_test` | release | 79 KiB | 68,345 | 1,648 | 200 | 70,193 |
-| `binary_size_tensor_probe` | debug | 6.7 MiB | 222,494 | 1,320 | 200 | 224,014 |
+| `tenspec_tensor_arithmetic_test` | release | 83 KiB | 72,996 | 1,672 | 200 | 74,868 |
+| `binary_size_libtorch_probe` | debug | 2.0 MiB | 117,418 | 1,192 | 200 | 118,810 |
+| `binary_size_tensor_probe` | debug | 3.6 MiB | 148,539 | 1,240 | 200 | 149,979 |
 
-The current repository does not include separate raw-only and typed-only binary
-targets, so whole-binary relative growth is not reported as a percentage. The
-symbol table above is the reproducible comparison currently available.
+Compared to the native LibTorch probe, the typed Tenspec probe is 4,120 file
+bytes and 1,313 `.text` bytes larger in release mode, or about +6.9% file size
+and +2.7% `.text`.
 
 ## Documentation
 

@@ -8,6 +8,8 @@ export import :shape_meta;
 export import :common;
 export import :tensor_base;
 
+#include "attribute.inc"
+
 #define BROADCAST_COMPATIBLE(LShape, RShape) \
 	(::tenspec::detail::broadcast_compatible(LShape::dims, RShape::dims))
 
@@ -86,14 +88,14 @@ public:
 		return unsafe_retain(raw);
 	}
 
-	[[nodiscard]] static inline auto unsafe_retain(::at::Tensor const &raw) noexcept
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE static auto unsafe_retain(::at::Tensor const &raw) noexcept
 		-> Tensor
 	{
 		::at::Tensor retained{raw};
 		return Tensor(::std::move(retained)); // get the copy of the raw
 	}
 
-	[[nodiscard]] static inline auto unsafe_move(::at::Tensor &&raw) noexcept -> Tensor
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE static auto unsafe_move(::at::Tensor &&raw) noexcept -> Tensor
 	{
 		return Tensor(::std::move(raw));
 	}
@@ -155,8 +157,8 @@ public:
 	}
 
 	template <TensorLike Other>
-	[[nodiscard]] inline auto add(Other const &other,
-								  ::at::Scalar const &alpha = 1) const
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto add(Other const &other,
+												 ::at::Scalar const &alpha = 1) const
 	{
 		using OtherShape = typename Other::shape;
 		static_assert(BROADCAST_COMPATIBLE(shape, OtherShape),
@@ -296,7 +298,7 @@ public:
 		using Result = Tensor<FLATTEN_SHAPE_T(shape, StartDim, EndDim), dtype,
 							  device,
 							  layout == Layout::Contiguous ? Layout::Contiguous
-														 : Layout::Any>;
+														   : Layout::Any>;
 		return Result::unsafe_move(unsafe_raw().flatten(StartDim, EndDim));
 	}
 
@@ -445,7 +447,7 @@ public:
 
 	template <TensorLike Mask>
 	[[nodiscard]] inline auto mask_fill(Mask const &mask,
-								 ::at::Scalar const &value) const
+										::at::Scalar const &value) const
 	{
 		return masked_fill(mask, value);
 	}
@@ -536,13 +538,13 @@ public:
 		return retain(raw);
 	}
 
-	[[nodiscard]] inline auto unsafe_wrap(::at::Tensor const &raw) noexcept
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unsafe_wrap(::at::Tensor const &raw) noexcept
 
 	{
 		return unsafe_retain(raw);
 	}
 
-	[[nodiscard]] inline auto unsafe_wrap(::at::Tensor &&raw) noexcept
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unsafe_wrap(::at::Tensor &&raw) noexcept
 
 	{
 		return unsafe_move(raw);

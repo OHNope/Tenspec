@@ -180,6 +180,21 @@ target("binary_size_tensor_probe")
     end
 target_end()
 
+target("binary_size_libtorch_probe")
+    set_default(false)
+    set_kind("binary")
+    add_rules("libtorch_runtime", "python_headers")
+    add_packages("libtorch")
+    add_files("src/libtorch.mpp")
+    add_files("src/fastio.mpp", "src/fastio.cpp", "tests/binary_size_libtorch_probe.cpp")
+    add_includedirs("third_party/fast_io/include")
+    if is_mode("debug") then
+        add_cxxflags("-O0", "-g3", "-fno-inline", "-fno-omit-frame-pointer")
+    elseif is_mode("release") then
+        add_cxxflags("-O2", "-g1", "-fno-omit-frame-pointer")
+    end
+target_end()
+
 target("tenspec_tensor_arithmetic_test")
     set_default(false)
     set_kind("binary")

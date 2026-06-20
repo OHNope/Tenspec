@@ -4,6 +4,8 @@ import std;
 import libtorch;
 export import :types;
 
+#include "attribute.inc"
+
 export namespace tenspec
 {
 
@@ -32,12 +34,12 @@ public:
 	inline TensorBase(TensorBase &&) noexcept = default;
 	inline auto operator=(TensorBase &&) noexcept -> TensorBase & = default;
 
-	[[nodiscard]] inline auto unsafe_raw() const & noexcept -> ::at::Tensor const &
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unsafe_raw() const & noexcept -> ::at::Tensor const &
 	{
 		return impl_;
 	}
 
-	[[nodiscard]] inline auto unwrap() && noexcept -> ::at::Tensor
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unwrap() && noexcept -> ::at::Tensor
 	{
 		return ::std::move(impl_);
 	}

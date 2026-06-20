@@ -12,6 +12,7 @@ explains how to reproduce them and how to interpret the numbers.
 source scripts/env.sh
 xmake f -m release --yes --python="${PYTHON:-python3}"
 xmake build tenspec_forwarding_benchmark
+xmake build binary_size_libtorch_probe
 xmake build binary_size_tensor_probe
 ```
 
@@ -19,6 +20,7 @@ For symbol-level inspection, also build the debug/no-inline probe:
 
 ```bash
 xmake f -m debug --yes --python="${PYTHON:-python3}"
+xmake build binary_size_libtorch_probe
 xmake build binary_size_tensor_probe
 ```
 
@@ -60,6 +62,7 @@ Use `size` on the release artifacts:
 ```bash
 size \
   build/linux/x86_64/release/tenspec_forwarding_benchmark \
+  build/linux/x86_64/release/binary_size_libtorch_probe \
   build/linux/x86_64/release/binary_size_tensor_probe \
   build/linux/x86_64/release/tenspec_tensor_arithmetic_test
 ```
@@ -69,34 +72,47 @@ Current snapshot:
 | Target | Mode | File size | `.text` | `.data` | `.bss` | `size` total |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | `tenspec_forwarding_benchmark` | release | 51 KiB | 42,927 | 1,480 | 200 | 44,607 |
+| `binary_size_libtorch_probe` | release | 59 KiB | 48,394 | 1,376 | 200 | 49,970 |
 | `binary_size_tensor_probe` | release | 63 KiB | 49,707 | 1,400 | 200 | 51,307 |
-| `tenspec_tensor_arithmetic_test` | release | 79 KiB | 68,345 | 1,648 | 200 | 70,193 |
-| `binary_size_tensor_probe` | debug | 6.7 MiB | 222,494 | 1,320 | 200 | 224,014 |
+| `tenspec_tensor_arithmetic_test` | release | 83 KiB | 72,996 | 1,672 | 200 | 74,868 |
+| `binary_size_libtorch_probe` | debug | 2.0 MiB | 117,418 | 1,192 | 200 | 118,810 |
+| `binary_size_tensor_probe` | debug | 2.1 MiB | 126,725 | 1,240 | 200 | 128,165 |
+
+The release `binary_size_tensor_probe` is the same workload as
+`binary_size_libtorch_probe`, with the typed wrapper used for retain/unwrap/add
+paths. Compared to the native LibTorch probe, the typed probe is:
+
+| Mode | File size delta | `.text` delta | `size` total delta |
+| --- | ---: | ---: | ---: |
+| release | +4,120 bytes (+6.9%) | +1,313 bytes (+2.7%) | +1,337 bytes (+2.7%) |
+| debug | +121,720 bytes (+6.1%) | +9,307 bytes (+7.9%) | +9,355 bytes (+7.9%) |
 
 ## Symbol Growth Probe
 
-Release binaries may be stripped. Use the debug probe for symbol accounting:
+Release binaries are stripped by the current build, so use the debug probes for
+symbol accounting:
 
 ```bash
-probe=build/linux/x86_64/debug/binary_size_tensor_probe
-nm -S --size-sort --demangle "$probe" | sed -n '/tenspec/p'
+bash scripts/nm_size_probe.sh debug
 ```
 
-The current summary was produced by grouping symbols containing `raw_`,
-`typed_`, Tensor wrapper names, and runtime check names.
+`binary_size_libtorch_probe` is the native LibTorch equivalent of
+`binary_size_tensor_probe`. Both programs print `16` and execute the same
+high-level retain/add/unwrap/numel flow.
 
 | Symbol group | Bytes | Symbols | Interpretation |
 | --- | ---: | ---: | --- |
-| Raw probe functions | 221 | 4 | Direct `at::Tensor` helper functions. |
-| Typed probe functions | 322 | 6 | Equivalent Tenspec helper functions. |
-| Typed/raw project function ratio | 1.457x | - | Small absolute growth in this probe. |
-| Tensor-related symbols | 1018 | 14 | Wrapper methods and instantiated tensor helpers visible in the probe. |
-| Runtime shape check symbols | 373 | 2 | Runtime contract checks. |
-| dtype/device/layout match symbols | 353 | 3 | Runtime metadata predicates. |
+| Native probe functions | 486 | 9 | Native `at::Tensor` equivalent helper functions. |
+| Typed probe functions | 517 | 9 | Tenspec helper functions with the same call flow. |
+| Typed/native probe function ratio | 1.064x | - | +31 bytes in the noinline helper layer. |
+| Tensor wrapper nm records | 1,039 | 18 | `Tensor`/`TensorBase` records, including alias records such as `C1/C2` and `D1/D2`. |
+| Tensor wrapper unique code addresses | 778 | 12 | Same wrapper set folded by address; this is the better code-entity count. |
+| Runtime check symbols | 700 | 5 | Runtime shape/dtype/device/layout contract checks. |
 
-The current repository does not include separate raw-only and typed-only binary
-targets. For that reason, whole-binary relative growth is not reported as a
-single percentage. The symbol table is the reproducible proxy available today.
+The wrapper is therefore not completely optimized away in the debug/noinline
+probe. In the release whole-binary comparison, visible symbols are stripped, but
+the typed probe still has about 1.3 KiB more `.text` than the native LibTorch
+equivalent.
 
 ## Reproducibility Notes
 
