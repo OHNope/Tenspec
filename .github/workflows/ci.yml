@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHON: ${{ vars.PYTHON || 'python3' }}
+  GCC_ROOT: ${{ vars.GCC_ROOT }}
+  GCC_RUNTIME_LIB: ${{ vars.GCC_RUNTIME_LIB }}
+  XMAKE_ROOT: ${{ vars.XMAKE_ROOT }}
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show environment
+        run: |
+          source scripts/env.sh
+          bash scripts/check_env.sh
+
+      - name: Configure debug build
+        run: |
+          source scripts/env.sh
+          xmake f -m debug --yes --python="$PYTHON"
+
+      - name: Build default targets
+        run: |
+          source scripts/env.sh
+          xmake build
+
+      - name: Build tensor arithmetic test
+        run: |
+          source scripts/env.sh
+          xmake build tenspec_tensor_arithmetic_test
+
+      - name: Run tensor arithmetic test
+        run: |
+          source scripts/env.sh
+          xmake run tenspec_tensor_arithmetic_test
+
+      - name: Configure release build
+        run: |
+          source scripts/env.sh
+          xmake f -m release --yes --python="$PYTHON"
+
+      - name: Build release probes
+        run: |
+          source scripts/env.sh
+          xmake build binary_size_libtorch_probe
+          xmake build binary_size_tensor_probe
+
+      - name: Run release probes
+        run: |
+          source scripts/env.sh
+          xmake run binary_size_libtorch_probe
+          xmake run binary_size_tensor_probe
+
+      - name: Report binary size snapshot
+        run: |
+          source scripts/env.sh
+          bash scripts/nm_size_probe.sh release
+          bash scripts/nm_size_probe.sh debug
