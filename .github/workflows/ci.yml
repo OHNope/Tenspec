@@ -19,6 +19,7 @@ defaults:
 env:
   PYTHON: python3
   BUILD_JOBS: "2"
+  XMAKE_ROOT: "y"
 
 jobs:
   build-and-test:
