@@ -95,31 +95,3 @@ jobs:
         run: |
           source scripts/env.sh
           xmake build -j "$BUILD_JOBS" typetorch_capi_ext
-
-      - name: Report debug symbol snapshot
-        run: |
-          source scripts/env.sh
-          MAX_LINES=80 bash scripts/nm_size_probe.sh debug
-
-      - name: Configure release build
-        run: |
-          source scripts/env.sh
-          xmake f -m release --yes --python="$PYTHON"
-
-      - name: Build release probes and benchmark
-        run: |
-          source scripts/env.sh
-          xmake build -j "$BUILD_JOBS" binary_size_libtorch_probe
-          xmake build -j "$BUILD_JOBS" binary_size_tensor_probe
-          xmake build -j "$BUILD_JOBS" typetorch_forwarding_benchmark
-
-      - name: Run release probes
-        run: |
-          source scripts/env.sh
-          xmake run binary_size_libtorch_probe
-          xmake run binary_size_tensor_probe
-
-      - name: Report release binary size snapshot
-        run: |
-          source scripts/env.sh
-          MAX_LINES=80 bash scripts/nm_size_probe.sh release
