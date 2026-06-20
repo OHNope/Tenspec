@@ -16,9 +16,8 @@ local tenspec_module_files = {
     "src/tenspec_aten_mappings.mpp",
     "src/tenspec_shape_meta.mpp",
     "src/tenspec_common.mpp",
-    "src/tenspec_tensor_base.mpp",
-    "src/tenspec_tensor.mpp",
     "src/tenspec_runtime_checks.mpp",
+    "src/tenspec_tensor.mpp",
     "src/tenspec.mpp"
 }
 

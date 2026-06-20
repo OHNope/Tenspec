@@ -120,8 +120,8 @@ where Tenspec intentionally differs from LibTorch.
 
 ## Current Measurement Snapshot
 
-These numbers are a snapshot from the checked-out build artifacts used during
-repository cleanup. Reproduce them with the commands in
+These numbers are a snapshot from the `Tensor`-only wrapper layout after
+removing the former `TensorBase` layer. Reproduce them with the commands in
 [docs/performance-and-size.md](docs/performance-and-size.md). Treat them as
 indicative, not as a stable benchmark promise.
 
@@ -151,24 +151,24 @@ the same high-level retain/add/unwrap/numel flow; the first uses only native
 | Native probe functions | 486 | 9 | Native `at::Tensor` equivalent helper functions. |
 | Typed probe functions | 768 | 9 | Tenspec helper functions with the same call flow. |
 | Typed/native probe function ratio | 1.580x | - | +282 bytes in the noinline helper layer. |
-| Tensor wrapper nm records | 748 | 13 | `Tensor`/`TensorBase` records, including ABI alias records. |
-| Tensor wrapper unique code addresses | 479 | 7 | Same wrapper set folded by address; this is the better code-entity count. |
+| Tensor wrapper nm records | 432 | 7 | `Tensor` wrapper records, including ABI alias records. |
+| Tensor wrapper unique code addresses | 321 | 4 | Same wrapper set folded by address; this is the better code-entity count. |
 | Runtime check symbols | 700 | 5 | Runtime shape/dtype/device/layout contract checks. |
 
 ### Binary Size Snapshot
 
 | Target | Mode | File size | `.text` | `.data` | `.bss` | `size` total |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `tenspec_forwarding_benchmark` | release | 51 KiB | 42,927 | 1,480 | 200 | 44,607 |
+| `tenspec_forwarding_benchmark` | release | 51 KiB | 43,157 | 1,480 | 200 | 44,837 |
 | `binary_size_libtorch_probe` | release | 59 KiB | 48,394 | 1,376 | 200 | 49,970 |
-| `binary_size_tensor_probe` | release | 63 KiB | 49,707 | 1,400 | 200 | 51,307 |
-| `tenspec_tensor_arithmetic_test` | release | 83 KiB | 72,996 | 1,672 | 200 | 74,868 |
+| `binary_size_tensor_probe` | release | 63 KiB | 49,659 | 1,400 | 200 | 51,259 |
+| `tenspec_tensor_arithmetic_test` | release | 83 KiB | 72,948 | 1,672 | 200 | 74,820 |
 | `binary_size_libtorch_probe` | debug | 2.0 MiB | 117,418 | 1,192 | 200 | 118,810 |
-| `binary_size_tensor_probe` | debug | 3.6 MiB | 148,539 | 1,240 | 200 | 149,979 |
+| `binary_size_tensor_probe` | debug | 3.1 MiB | 140,871 | 1,240 | 200 | 142,311 |
 
 Compared to the native LibTorch probe, the typed Tenspec probe is 4,120 file
-bytes and 1,313 `.text` bytes larger in release mode, or about +6.9% file size
-and +2.7% `.text`.
+bytes and 1,265 `.text` bytes larger in release mode, or about +6.9% file size
+and +2.6% `.text`.
 
 ## Documentation
 

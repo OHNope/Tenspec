@@ -7,6 +7,5 @@ export import :types;
 export import :aten_mappings;
 export import :shape_meta;
 export import :common;
-export import :tensor_base;
 export import :tensor;
 export import :runtime_checks;

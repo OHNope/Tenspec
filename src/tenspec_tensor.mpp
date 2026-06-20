@@ -6,7 +6,7 @@ export import :types;
 export import :aten_mappings;
 export import :shape_meta;
 export import :common;
-export import :tensor_base;
+export import :runtime_checks;
 
 #include "attribute.inc"
 
@@ -62,17 +62,32 @@ export import :tensor_base;
 export namespace tenspec
 {
 
+namespace detail
+{
+
+consteval inline auto static_arange_size(::std::size_t start,
+                                         ::std::size_t end,
+                                         ::std::size_t step)
+    -> ::std::int64_t
+{
+    if (step == 0 || end < start)
+    {
+        return 0;
+    }
+    return static_cast<::std::int64_t>((end - start + step - 1) / step);
+}
+
+} // namespace detail
+
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind,
 		  Layout LayoutKind>
-class Tensor : public detail::TensorBase
+class Tensor
 {
 public:
 	using shape = ShapeKind;
 	static constexpr inline DType dtype{DTypeKind};
 	static constexpr inline Device device{DeviceKind};
 	static constexpr inline Layout layout{LayoutKind};
-	using detail::TensorBase::unsafe_raw;
-	using detail::TensorBase::unwrap;
 
 	Tensor() = delete;
 	Tensor(Tensor const &) = delete;
@@ -80,6 +95,62 @@ public:
 
 	inline Tensor(Tensor &&) noexcept = default;
 	inline auto operator=(Tensor &&) noexcept -> Tensor & = default;
+
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unsafe_raw() const & noexcept -> ::at::Tensor const &
+	{
+		return impl_;
+	}
+
+	[[nodiscard]] TENSPEC_ALWAYS_INLINE auto unwrap() && noexcept -> ::at::Tensor
+	{
+		return ::std::move(impl_);
+	}
+
+	[[nodiscard]] inline auto sizes() const noexcept -> ::std::vector<::std::int64_t>
+	{
+		return impl_.sizes().vec();
+	}
+
+	template <::std::size_t start, ::std::size_t end,
+			  DType dtype = DType::F32, Device device = Device::CPU>
+	[[nodiscard]] static inline auto arange()
+	{
+		return arange<start, end, 1, dtype, device>();
+	}
+
+	template <::std::size_t seq, DType dtype = DType::F32,
+			  Device device = Device::CPU>
+	[[nodiscard]] static inline auto arange()
+	{
+		return arange<0, seq, 1, dtype, device>();
+	}
+
+	template <::std::size_t start, ::std::size_t end, ::std::size_t step,
+			  DType dtype = DType::F32, Device device = Device::CPU>
+	[[nodiscard]] static inline auto arange()
+	{
+		static_assert(step != 0, "Tensor::arange() step must be non-zero");
+		static_assert(end >= start, "Tensor::arange() requires end >= start");
+		static_assert(dtype != DType::Any,
+					  "Tensor::arange() requires a concrete dtype");
+		static_assert(dtype != DType::Bool,
+					  "Tensor::arange() does not support bool dtype");
+		static_assert(device != Device::Any,
+					  "Tensor::arange() requires a concrete device");
+
+		using Result = ::tenspec::Tensor<
+			::tenspec::Shape<detail::static_arange_size(start, end, step)>, dtype,
+			device, Layout::Contiguous>;
+		return Result::unsafe_move(
+			::at::arange(static_cast<::std::int64_t>(start),
+						 static_cast<::std::int64_t>(end),
+						 static_cast<::std::int64_t>(step), Result::factory_options));
+	}
+
+	inline auto detach()
+	{
+		return impl_.detach();
+	}
 
 	[[nodiscard]] static inline auto retain(::at::Tensor const &raw) -> Tensor
 	{
@@ -581,8 +652,10 @@ private:
 	}
 
 	inline explicit Tensor(::at::Tensor raw) noexcept
-		: detail::TensorBase{::std::move(raw)}
+		: impl_{::std::move(raw)}
 	{}
+
+	::at::Tensor impl_;
 };
 
 } // namespace tenspec
