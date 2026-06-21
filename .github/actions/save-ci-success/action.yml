@@ -1,0 +1,25 @@
+name: Save CI success
+description: Save a successful-result cache marker after expensive CI steps pass.
+
+inputs:
+  marker-path:
+    required: true
+    description: Path used as the successful-result cache payload.
+  cache-key:
+    required: true
+    description: Primary cache key for the successful-result marker.
+
+runs:
+  using: composite
+  steps:
+    - name: Mark successful ci result
+      shell: bash
+      run: |
+        mkdir -p "${{ inputs.marker-path }}"
+        printf '%s\n' "${{ github.sha }}" > "${{ inputs.marker-path }}/ok"
+
+    - name: Save successful ci result
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.marker-path }}
+        key: ${{ inputs.cache-key }}

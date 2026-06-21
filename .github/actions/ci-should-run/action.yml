@@ -1,0 +1,42 @@
+name: Decide CI execution
+description: Restore a successful-result cache marker and decide whether this job should run.
+
+inputs:
+  marker-path:
+    required: true
+    description: Path used as the successful-result cache payload.
+  cache-key:
+    required: true
+    description: Cache key for the successful-result marker.
+
+outputs:
+  run:
+    description: Whether the caller should run expensive CI steps.
+    value: ${{ steps.decide.outputs.run }}
+  cache-hit:
+    description: Whether the successful-result cache marker was found.
+    value: ${{ steps.success-cache.outputs.cache-hit }}
+  cache-primary-key:
+    description: Primary key to use when saving the successful-result marker.
+    value: ${{ steps.success-cache.outputs.cache-primary-key }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore successful ci result
+      id: success-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ inputs.marker-path }}
+        key: ${{ inputs.cache-key }}
+        lookup-only: true
+
+    - name: Decide whether to run
+      id: decide
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ steps.success-cache.outputs.cache-hit }}" != "true" ]; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "run=false" >> "$GITHUB_OUTPUT"
+        fi
