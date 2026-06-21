@@ -219,6 +219,14 @@ size \
   build/linux/x86_64/release/binary_size_tensor_unsafe_probe
 ```
 
+Current release snapshot:
+
+| Target | text | data | bss | dec | hex |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `binary_size_libtorch_probe` | 61973 | 1712 | 200 | 63885 | f98d |
+| `binary_size_tensor_checked_probe` | 65873 | 1744 | 200 | 67817 | 108e9 |
+| `binary_size_tensor_unsafe_probe` | 62205 | 1712 | 200 | 64117 | fa75 |
+
 The older `binary_size_tensor_probe` mixed checked and unsafe retain paths, so
 it should not be used as the headline Typetorch-vs-LibTorch comparison.
 
