@@ -92,8 +92,8 @@ jobs:
           marker-path: .ci-success/environment
           cache-key: ${{ steps.ci.outputs.cache-primary-key }}
 
-  cpp-debug:
-    name: Build and run cpp debug example
+  core-tests:
+    name: Build and run core C++ tests
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
@@ -108,8 +108,8 @@ jobs:
         id: ci
         uses: ./.github/actions/ci-should-run
         with:
-          marker-path: .ci-success/cpp-debug
-          cache-key: ${{ runner.os }}-gcc16-ci-success-cpp-debug-${{ hashFiles('.github/workflows/ci.yml', '.github/actions/**', 'xmake.lua', 'scripts/env.sh', 'scripts/bootstrap_xmake.sh', 'packages/l/libtorch-bin/xmake.lua', 'src/**', 'third_party/fast_io/**', 'examples/**') }}
+          marker-path: .ci-success/core-tests
+          cache-key: ${{ runner.os }}-gcc16-ci-success-core-tests-${{ hashFiles('.github/workflows/ci.yml', '.github/actions/**', 'xmake.lua', 'scripts/env.sh', 'scripts/bootstrap_xmake.sh', 'packages/l/libtorch-bin/xmake.lua', 'src/**', 'third_party/fast_io/**', 'examples/**', 'tests/tensor_arithmetic_test.cpp') }}
 
       - name: Install system packages
         if: steps.ci.outputs.run == 'true'
@@ -178,87 +178,6 @@ jobs:
           source scripts/env.sh
           xmake run typetorch_cpp_debug
 
-      - name: Save successful ci result
-        if: steps.ci.outputs.run == 'true' && steps.ci.outputs.cache-hit != 'true'
-        uses: ./.github/actions/save-ci-success
-        with:
-          marker-path: .ci-success/cpp-debug
-          cache-key: ${{ steps.ci.outputs.cache-primary-key }}
-
-  tensor-test:
-    name: Build and run tensor arithmetic test
-    runs-on: ubuntu-24.04
-    container:
-      image: gcc:16
-    timeout-minutes: 120
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Decide whether to run
-        id: ci
-        uses: ./.github/actions/ci-should-run
-        with:
-          marker-path: .ci-success/tensor-test
-          cache-key: ${{ runner.os }}-gcc16-ci-success-tensor-test-${{ hashFiles('.github/workflows/ci.yml', '.github/actions/**', 'xmake.lua', 'scripts/env.sh', 'scripts/bootstrap_xmake.sh', 'packages/l/libtorch-bin/xmake.lua', 'src/**', 'third_party/fast_io/**', 'tests/tensor_arithmetic_test.cpp') }}
-
-      - name: Install system packages
-        if: steps.ci.outputs.run == 'true'
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            ca-certificates curl unzip git file binutils \
-            python3 python3-dev python3-venv pkg-config
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Cache xmake installation
-        if: steps.ci.outputs.run == 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/bin/xmake
-            ~/.local/bin/xrepo
-            ~/.local/share/xmake
-          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-install-
-
-      - name: Cache xmake packages
-        if: steps.ci.outputs.run == 'true'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.xmake/packages
-            ~/.xmake/cache
-          key: ${{ runner.os }}-gcc16-xmake-${{ hashFiles('xmake.lua', 'packages/l/libtorch-bin/xmake.lua') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-
-
-      - name: Install xmake
-        if: steps.ci.outputs.run == 'true'
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v xmake >/dev/null 2>&1; then
-            bash scripts/bootstrap_xmake.sh
-          fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          xmake --version
-
-      - name: Configure Python include path
-        if: steps.ci.outputs.run == 'true'
-        run: |
-          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
-          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
-
-      - name: Configure debug build
-        if: steps.ci.outputs.run == 'true'
-        run: |
-          source scripts/env.sh
-          xmake f -m debug --yes --python="$PYTHON"
-
       - name: Build tensor arithmetic test
         if: steps.ci.outputs.run == 'true'
         run: |
@@ -275,7 +194,7 @@ jobs:
         if: steps.ci.outputs.run == 'true' && steps.ci.outputs.cache-hit != 'true'
         uses: ./.github/actions/save-ci-success
         with:
-          marker-path: .ci-success/tensor-test
+          marker-path: .ci-success/core-tests
           cache-key: ${{ steps.ci.outputs.cache-primary-key }}
 
   capi-extension:

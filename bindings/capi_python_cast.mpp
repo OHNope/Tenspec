@@ -3,14 +3,23 @@ export module typetorch.capi_python_cast;
 import std;
 import python;
 import torch_python;
-import typetorch;
 
 export namespace typetorch_capi::reflect
 {
 
 template <typename Arg>
 using parsed_arg_t = ::std::remove_cvref_t<Arg>;
+template <typename T>
+concept retained_tensor_like =
+	requires(torch_python::Tensor tensor) {
+		{ T::retain(::std::move(tensor)) } -> ::std::same_as<T>;
+	};
 
+template <typename T>
+concept unwrap_tensor_like =
+	requires(T value) {
+		{ ::std::move(value).unwrap() } -> ::std::same_as<torch_python::Tensor>;
+	};
 inline auto parse_tensor(python::PyObject *object, ::std::size_t index)
 	-> ::std::optional<::torch_python::Tensor>
 {
@@ -44,7 +53,7 @@ template <typename Arg>
 inline auto parse_arg(python::PyObject *object, ::std::size_t index)
 	-> ::std::optional<parsed_arg_t<Arg>>
 {
-	if constexpr (typetorch::TensorLike<Arg>)
+	if constexpr (retained_tensor_like<Arg>)
 	{
 		auto tensor{parse_tensor(object, index)};
 		if (!tensor)
@@ -135,7 +144,7 @@ template <typename Result>
 inline auto to_python(Result &&result) -> python::PyObject *
 {
 	using Bare = ::std::remove_cvref_t<Result>;
-	if constexpr (typetorch::TensorLike<Bare>)
+	if constexpr (unwrap_tensor_like<Bare>)
 	{
 		return torch_python::tensor_wrap(::std::move(result).unwrap());
 	}
