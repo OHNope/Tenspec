@@ -1,7 +1,6 @@
 export module typetorch.capi_python_cast;
 
 import std;
-import libtorch;
 import python;
 import torch_python;
 import typetorch;
@@ -13,7 +12,7 @@ template <typename Arg>
 using parsed_arg_t = ::std::remove_cvref_t<Arg>;
 
 inline auto parse_tensor(python::PyObject *object, ::std::size_t index)
-	-> ::std::optional<::torch::Tensor>
+	-> ::std::optional<::torch_python::Tensor>
 {
 	if (!torch_python::tensor_check(object))
 	{
@@ -54,7 +53,7 @@ inline auto parse_arg(python::PyObject *object, ::std::size_t index)
 		}
 		return Arg::retain(::std::move(*tensor));
 	}
-	else if constexpr (::std::is_same_v<Arg, ::torch::Tensor>)
+	else if constexpr (::std::is_same_v<Arg, ::torch_python::Tensor>)
 	{
 		return parse_tensor(object, index);
 	}
@@ -140,7 +139,7 @@ inline auto to_python(Result &&result) -> python::PyObject *
 	{
 		return torch_python::tensor_wrap(::std::move(result).unwrap());
 	}
-	else if constexpr (::std::is_same_v<Bare, ::torch::Tensor>)
+	else if constexpr (::std::is_same_v<Bare, ::torch_python::Tensor>)
 	{
 		return torch_python::tensor_wrap(::std::forward<Result>(result));
 	}

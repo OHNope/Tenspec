@@ -10,18 +10,18 @@ export module torch_python;
 export namespace torch_python
 {
 using ::PyObject;
-
+using Tensor = ::torch::Tensor;
 inline auto tensor_check(PyObject *object) -> bool
 {
 	return ::THPVariable_Check(object) != 0;
 }
 
-inline auto tensor_unpack(PyObject *object) -> ::torch::Tensor
+inline auto tensor_unpack(PyObject *object) -> Tensor
 {
 	return ::THPVariable_Unpack(object);
 }
 
-inline auto tensor_wrap(::torch::Tensor tensor) -> PyObject *
+inline auto tensor_wrap(Tensor tensor) -> PyObject *
 {
 	return ::THPVariable_Wrap(tensor);
 }
