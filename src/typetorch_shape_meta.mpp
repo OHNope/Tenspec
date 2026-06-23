@@ -497,6 +497,154 @@ consteval inline auto same_shape(::std::span<::std::int64_t const> lhs,
 	return true;
 }
 
+consteval inline auto compatible_dim(::std::int64_t lhs,
+									 ::std::int64_t rhs) noexcept -> bool
+{
+	return lhs == rhs || lhs == dyn || rhs == dyn;
+}
+
+consteval inline auto merged_dim(::std::int64_t lhs,
+								 ::std::int64_t rhs) noexcept -> ::std::int64_t
+{
+	if (lhs == rhs)
+	{
+		return lhs;
+	}
+	if (lhs == dyn)
+	{
+		return rhs;
+	}
+	if (rhs == dyn)
+	{
+		return lhs;
+	}
+	return dyn;
+}
+
+consteval inline auto compatible_shape(::std::span<::std::int64_t const> lhs,
+									   ::std::span<::std::int64_t const> rhs) noexcept
+	-> bool
+{
+	if (lhs.size() != rhs.size())
+	{
+		return false;
+	}
+
+	for (::std::size_t i{0}; i < lhs.size(); ++i)
+	{
+		if (!compatible_dim(lhs[i], rhs[i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+consteval inline void merge_dim_into(::std::int64_t &result,
+									 ::std::int64_t other,
+									 char const *message)
+{
+	if (!compatible_dim(result, other))
+	{
+		throw message;
+	}
+	result = merged_dim(result, other);
+}
+
+consteval inline void cat_shape_into(::std::span<::std::int64_t> result,
+									 ::std::span<::std::int64_t const> other,
+									 ::std::size_t dim)
+{
+	if (result.size() != other.size())
+	{
+		throw "cat() expects tensors with the same rank";
+	}
+
+	for (::std::size_t i{0}; i < result.size(); ++i)
+	{
+		if (i == dim)
+		{
+			if (result[i] == dyn || other[i] == dyn)
+			{
+				result[i] = dyn;
+			}
+			else
+			{
+				result[i] += other[i];
+			}
+			continue;
+		}
+
+		if (!compatible_dim(result[i], other[i]))
+		{
+			throw "cat() tensor dimensions must match except along dim";
+		}
+		result[i] = merged_dim(result[i], other[i]);
+	}
+}
+
+template <class FirstShape, class... RestShapes>
+consteval auto cat_shape_meta(::std::int64_t dim) -> ::std::meta::info
+{
+	constexpr auto const &first_dims = FirstShape::dims;
+	constexpr ::std::size_t rank{FirstShape::rank};
+	if (rank == 0)
+	{
+		throw "cat() requires tensor rank >= 1";
+	}
+
+	::std::size_t const normalized{normalize_dim(dim, rank)};
+	::std::array<::std::int64_t, rank> result{};
+	for (::std::size_t i{0}; i < rank; ++i)
+	{
+		result[i] = first_dims[i];
+	}
+	(cat_shape_into(result, RestShapes::dims, normalized), ...);
+
+	::std::vector<::std::meta::info> args;
+	args.reserve(rank);
+	for (::std::int64_t value : result)
+	{
+		append_dim(args, value);
+	}
+	return ::std::meta::substitute(^^Shape, args);
+}
+
+template <class FirstShape, class... RestShapes>
+consteval auto stack_shape_meta(::std::int64_t dim) -> ::std::meta::info
+{
+	constexpr auto const &first_dims = FirstShape::dims;
+	constexpr ::std::size_t rank{FirstShape::rank};
+	::std::int64_t const signed_rank{static_cast<::std::int64_t>(rank)};
+	::std::int64_t const normalized{dim < 0 ? dim + signed_rank + 1 : dim};
+	if (normalized < 0 || normalized > signed_rank)
+	{
+		throw "stack() dimension out of range";
+	}
+
+	::std::size_t const insert_pos{static_cast<::std::size_t>(normalized)};
+	::std::vector<::std::meta::info> args;
+	args.reserve(rank + 1);
+	for (::std::size_t i{0}; i < insert_pos; ++i)
+	{
+		::std::int64_t merged{first_dims[i]};
+		(merge_dim_into(merged, RestShapes::dims[i],
+						"stack() expects tensors with compatible shapes"),
+		 ...);
+		append_dim(args, merged);
+	}
+	append_dim(args, static_cast<::std::int64_t>(1 + sizeof...(RestShapes)));
+	for (::std::size_t i{insert_pos}; i < rank; ++i)
+	{
+		::std::int64_t merged{first_dims[i]};
+		(merge_dim_into(merged, RestShapes::dims[i],
+						"stack() expects tensors with compatible shapes"),
+		 ...);
+		append_dim(args, merged);
+	}
+	return ::std::meta::substitute(^^Shape, args);
+}
+
 consteval inline auto normalized_shape_compatible(
 	::std::span<::std::int64_t const> input_dims,
 	::std::span<::std::int64_t const> normalized_dims) noexcept -> bool

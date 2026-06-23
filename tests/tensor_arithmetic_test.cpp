@@ -28,6 +28,14 @@ using Squeezed = typetorch::Tensor<typetorch::Shape<2, 3>, typetorch::DType::F32
 								   typetorch::Device::CPU, typetorch::Layout::Contiguous>;
 using BoolMatrix = typetorch::Tensor<typetorch::Shape<2, 3>, typetorch::DType::Bool,
 									 typetorch::Device::CPU, typetorch::Layout::Contiguous>;
+using CatRows = typetorch::Tensor<typetorch::Shape<4, 3>, typetorch::DType::F32,
+								  typetorch::Device::CPU, typetorch::Layout::Any>;
+using CatCols = typetorch::Tensor<typetorch::Shape<2, 6>, typetorch::DType::F32,
+								  typetorch::Device::CPU, typetorch::Layout::Any>;
+using StackOuter = typetorch::Tensor<typetorch::Shape<2, 2, 3>, typetorch::DType::F32,
+									 typetorch::Device::CPU, typetorch::Layout::Any>;
+using StackLast = typetorch::Tensor<typetorch::Shape<2, 3, 2>, typetorch::DType::F32,
+									typetorch::Device::CPU, typetorch::Layout::Any>;
 
 static_assert(::std::same_as<
 			  decltype(::std::declval<Matrix const &>().sub(
@@ -92,6 +100,22 @@ static_assert(::std::same_as<
 									 ::std::declval<Matrix const &>(),
 									 ::std::declval<Matrix const &>())),
 			  MatrixAny>);
+static_assert(::std::same_as<
+			  decltype(Matrix::cat<0>(::std::declval<Matrix const &>(),
+									  ::std::declval<Matrix const &>())),
+			  CatRows>);
+static_assert(::std::same_as<
+			  decltype(typetorch::cat<1>(::std::declval<Matrix const &>(),
+										 ::std::declval<Matrix const &>())),
+			  CatCols>);
+static_assert(::std::same_as<
+			  decltype(Matrix::stack<0>(::std::declval<Matrix const &>(),
+										::std::declval<Matrix const &>())),
+			  StackOuter>);
+static_assert(::std::same_as<
+			  decltype(typetorch::stack<2>(::std::declval<Matrix const &>(),
+										   ::std::declval<Matrix const &>())),
+			  StackLast>);
 
 auto options() -> ::torch::TensorOptions
 {
@@ -214,6 +238,26 @@ int main()
 					  Matrix::retain(twos_raw))
 			.unsafe_raw(),
 		::torch::where(mask_raw, matrix_raw(), twos_raw));
+	expect_allclose(
+		"cat_dim0_static",
+		Matrix::cat<0>(Matrix::retain(matrix_raw()), Matrix::retain(twos_raw))
+			.unsafe_raw(),
+		::torch::cat({matrix_raw(), twos_raw}, 0));
+	expect_allclose(
+		"cat_dim1_free",
+		typetorch::cat<1>(Matrix::retain(matrix_raw()), Matrix::retain(twos_raw))
+			.unsafe_raw(),
+		::torch::cat({matrix_raw(), twos_raw}, 1));
+	expect_allclose(
+		"stack_dim0_static",
+		Matrix::stack<0>(Matrix::retain(matrix_raw()), Matrix::retain(twos_raw))
+			.unsafe_raw(),
+		::torch::stack({matrix_raw(), twos_raw}, 0));
+	expect_allclose(
+		"stack_dim2_free",
+		typetorch::stack<2>(Matrix::retain(matrix_raw()), Matrix::retain(twos_raw))
+			.unsafe_raw(),
+		::torch::stack({matrix_raw(), twos_raw}, 2));
 
 	::fast_io::io::println("typetorch tensor arithmetic tests passed");
 }

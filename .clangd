@@ -1,9 +1,11 @@
 CompileFlags:
-    CompilationDatabase: .
+    CompilationDatabase: .vscode
     Remove:
         - -freflection
         - -fmodules
+        - -fmodules-ts
         - -flto
+        - -fmodule-mapper=*
         - -march=*
     Add:
         - -std=c++2c

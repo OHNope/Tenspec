@@ -35,6 +35,8 @@ using ::torch::get_num_threads;
 using ::torch::gt;
 using ::torch::layer_norm;
 using ::torch::ones;
+using ::torch::cat;
+using ::torch::stack;
 using ::torch::rand;
 using ::torch::randn;
 using ::torch::rms_norm;

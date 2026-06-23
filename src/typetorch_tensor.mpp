@@ -8,8 +8,73 @@ export import :shape_meta;
 export import :common;
 export import :runtime_checks;
 
-#include "attributes.inc"
-#include "type_macros.inc"
+#ifndef TYPETORCH_ATTR
+#define TYPETORCH_ATTR
+#if defined(__GNUC__) || defined(__CLANG__)
+#define TYPETORCH_ALWAYS_INLINE __attribute__((always_inline)) inline
+#define TYPETORCH_NO_INLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define TYPETORCH_ALWAYS_INLINE __forceinline
+#define TYPETORCH_NO_INLINE __declspec(noinline)
+#else
+#define TYPETORCH_ALWAYS_INLINE inline
+#define TYPETORCH_NO_INLINE
+#endif
+#ifdef __CUDACC__
+#define TYPETORCH_UNUSED
+#else
+#define TYPETORCH_UNUSED [[maybe_unused]]
+#endif
+#endif
+
+#define BROADCAST_COMPATIBLE(LShape, RShape) \
+	(::typetorch::detail::broadcast_compatible(LShape::dims, RShape::dims))
+
+#define BROADCAST_SHAPE_T(LShape, RShape)                 \
+	typename[: ::typetorch::detail::broadcast_shape_meta( \
+				   LShape::dims, RShape::dims):]
+
+#define MATMUL_SHAPE_T(LShape, RShape)                 \
+	typename[: ::typetorch::detail::matmul_shape_meta( \
+				   LShape::dims, RShape::dims):]
+
+#define TRANSPOSE_SHAPE_T(ShapeKind, Dim0, Dim1)          \
+	typename[: ::typetorch::detail::transpose_shape_meta( \
+				   ShapeKind::dims, Dim0, Dim1):]
+
+#define TRANSPOSE_LAYOUT(ShapeKind, LayoutKind, Dim0, Dim1) \
+	(::typetorch::detail::transpose_layout(LayoutKind, ShapeKind::dims, Dim0, Dim1))
+
+#define PERMUTE_SHAPE_T(ShapeKind, PermuteDims)         \
+	typename[: ::typetorch::detail::permute_shape_meta( \
+				   ShapeKind::dims, PermuteDims):]
+
+#define PERMUTE_LAYOUT(ShapeKind, LayoutKind, PermuteDims) \
+	(::typetorch::detail::permute_layout(LayoutKind, ShapeKind::dims, PermuteDims))
+
+#define VIEW_SHAPE_T(ShapeKind, ResultDims)          \
+	typename[: ::typetorch::detail::view_shape_meta( \
+				   ShapeKind::dims, ResultDims):]
+
+#define FLATTEN_SHAPE_T(ShapeKind, StartDim, EndDim)    \
+	typename[: ::typetorch::detail::flatten_shape_meta( \
+				   ShapeKind::dims, StartDim, EndDim):]
+
+#define SQUEEZE_SHAPE_T(ShapeKind)                      \
+	typename[: ::typetorch::detail::squeeze_shape_meta( \
+				   ShapeKind::dims):]
+
+#define SQUEEZE_DIM_SHAPE_T(ShapeKind, Dim)             \
+	typename[: ::typetorch::detail::squeeze_shape_meta( \
+				   ShapeKind::dims, Dim):]
+
+#define UNSQUEEZE_SHAPE_T(ShapeKind, Dim)                 \
+	typename[: ::typetorch::detail::unsqueeze_shape_meta( \
+				   ShapeKind::dims, Dim):]
+
+#define NORMALIZED_SHAPE_COMPATIBLE(InputShape, NormalizedShape) \
+	(::typetorch::detail::normalized_shape_compatible(           \
+		InputShape::dims, NormalizedShape::dims))
 
 export namespace typetorch
 {
@@ -27,6 +92,30 @@ consteval inline auto static_arange_size(::std::size_t start,
 		return 0;
 	}
 	return static_cast<::std::int64_t>((end - start + step - 1) / step);
+}
+
+consteval inline auto common_dtype_all(DType first) noexcept -> DType
+{
+	return first;
+}
+
+template <class... Rest>
+consteval inline auto common_dtype_all(DType first, Rest... rest) noexcept -> DType
+{
+	((first = common_dtype(first, rest)), ...);
+	return first;
+}
+
+consteval inline auto common_device_all(Device first) noexcept -> Device
+{
+	return first;
+}
+
+template <class... Rest>
+consteval inline auto common_device_all(Device first, Rest... rest) noexcept -> Device
+{
+	((first = common_device(first, rest)), ...);
+	return first;
 }
 
 } // namespace detail
@@ -496,6 +585,42 @@ public:
 			::torch::where(condition.unsafe_raw(), x.unsafe_raw(), y.unsafe_raw()));
 	}
 
+	template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+	[[nodiscard]] static inline auto cat(First const &first, Rest const &...rest)
+	{
+		using ResultShape =
+			typename[: detail::cat_shape_meta<typename First::shape,
+											  typename Rest::shape...>(Dim):];
+		using Result =
+			Tensor<ResultShape,
+				   detail::common_dtype_all(First::dtype, Rest::dtype...),
+				   detail::common_device_all(First::device, Rest::device...),
+				   Layout::Any>;
+
+		::std::vector<::torch::Tensor> tensors{first.unsafe_raw(),
+											   rest.unsafe_raw()...};
+		return Result::unsafe_move(
+			::torch::cat(tensors, static_cast<::std::int64_t>(Dim)));
+	}
+
+	template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+	[[nodiscard]] static inline auto stack(First const &first, Rest const &...rest)
+	{
+		using ResultShape =
+			typename[: detail::stack_shape_meta<typename First::shape,
+												typename Rest::shape...>(Dim):];
+		using Result =
+			Tensor<ResultShape,
+				   detail::common_dtype_all(First::dtype, Rest::dtype...),
+				   detail::common_device_all(First::device, Rest::device...),
+				   Layout::Any>;
+
+		::std::vector<::torch::Tensor> tensors{first.unsafe_raw(),
+											   rest.unsafe_raw()...};
+		return Result::unsafe_move(
+			::torch::stack(tensors, static_cast<::std::int64_t>(Dim)));
+	}
+
 	template <Device ndevice, DType ndtype = dtype>
 	[[nodiscard]] inline auto to() &&
 	{
@@ -607,5 +732,19 @@ private:
 
 	::torch::Tensor impl_;
 };
+
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto cat(First const &first, Rest const &...rest)
+{
+	return Tensor<typename First::shape, First::dtype, First::device,
+				  First::layout>::template cat<Dim>(first, rest...);
+}
+
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto stack(First const &first, Rest const &...rest)
+{
+	return Tensor<typename First::shape, First::dtype, First::device,
+				  First::layout>::template stack<Dim>(first, rest...);
+}
 
 } // namespace typetorch
