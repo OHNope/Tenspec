@@ -1,0 +1,190 @@
+export module typetorch:tensor_arithmetic;
+
+import :tensor_core;
+
+#include "attributes.inc"
+#include "type_macros.inc"
+
+export namespace typetorch
+{
+
+// add(Other)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Other>
+[[nodiscard]] TYPETORCH_ALWAYS_INLINE auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(Other const &other, ::torch::Scalar const &alpha) const
+{
+    using OtherShape = typename Other::shape;
+    static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
+                  "tensor shapes are not broadcast-compatible");
+    using Result =
+        Tensor<BROADCAST_SHAPE_T(ShapeKind, OtherShape),
+               common_dtype(DTypeKind, Other::dtype),
+               common_device(DeviceKind, Other::device), Layout::Any>;
+    return Result::unsafe_move(unsafe_raw().add(other.unsafe_raw(), alpha));
+}
+
+// add(scalar)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
+{
+    return unsafe_move(unsafe_raw().add(other, alpha));
+}
+
+// sub(Other)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Other>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(Other const &other, ::torch::Scalar const &alpha) const
+{
+    using OtherShape = typename Other::shape;
+    static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
+                  "tensor shapes are not broadcast-compatible");
+    using Result =
+        Tensor<BROADCAST_SHAPE_T(ShapeKind, OtherShape),
+               common_dtype(DTypeKind, Other::dtype),
+               common_device(DeviceKind, Other::device), Layout::Any>;
+    return Result::unsafe_move(unsafe_raw().sub(other.unsafe_raw(), alpha));
+}
+
+// sub(scalar)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
+{
+    return unsafe_move(unsafe_raw().sub(other, alpha));
+}
+
+// mul(Other)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Other>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(Other const &other) const
+{
+    using OtherShape = typename Other::shape;
+    static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
+                  "tensor shapes are not broadcast-compatible");
+    using Result =
+        Tensor<BROADCAST_SHAPE_T(ShapeKind, OtherShape),
+               common_dtype(DTypeKind, Other::dtype),
+               common_device(DeviceKind, Other::device), Layout::Any>;
+    return Result::unsafe_move(unsafe_raw().mul(other.unsafe_raw()));
+}
+
+// mul(scalar)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(::torch::Scalar const &other) const
+{
+    return unsafe_move(unsafe_raw().mul(other));
+}
+
+// div(Other)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Other>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(Other const &other) const
+{
+    using OtherShape = typename Other::shape;
+    static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
+                  "tensor shapes are not broadcast-compatible");
+    using Result =
+        Tensor<BROADCAST_SHAPE_T(ShapeKind, OtherShape),
+               common_dtype(DTypeKind, Other::dtype),
+               common_device(DeviceKind, Other::device), Layout::Any>;
+    return Result::unsafe_move(unsafe_raw().div(other.unsafe_raw()));
+}
+
+// div(scalar)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(::torch::Scalar const &other) const
+{
+    return unsafe_move(unsafe_raw().div(other));
+}
+
+// matmul
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Other>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::matmul(Other const &other) const
+{
+    using OtherShape = typename Other::shape;
+    using Result =
+        Tensor<MATMUL_SHAPE_T(ShapeKind, OtherShape),
+               common_dtype(DTypeKind, Other::dtype),
+               common_device(DeviceKind, Other::device), Layout::Any>;
+    return Result::unsafe_move(unsafe_raw().matmul(other.unsafe_raw()));
+}
+
+// where
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <TensorLike Condition, TensorLike X, TensorLike Y>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::where(Condition const &condition, X const &x, Y const &y)
+{
+    using ConditionShape = typename Condition::shape;
+    using XShape = typename X::shape;
+    using YShape = typename Y::shape;
+    static_assert(Condition::dtype == DType::Any || Condition::dtype == DType::Bool,
+                  "Tensor::where() requires a bool condition tensor");
+    static_assert(BROADCAST_COMPATIBLE(XShape, YShape),
+                  "where value tensor shapes are not broadcast-compatible");
+    using ValueShape = BROADCAST_SHAPE_T(XShape, YShape);
+    static_assert(BROADCAST_COMPATIBLE(ValueShape, ConditionShape),
+                  "where condition shape is not broadcast-compatible");
+    using Result = Tensor<BROADCAST_SHAPE_T(ValueShape, ConditionShape),
+                          common_dtype(X::dtype, Y::dtype),
+                          common_device(common_device(X::device, Y::device),
+                                        Condition::device),
+                          Layout::Any>;
+    return Result::unsafe_move(
+        ::torch::where(condition.unsafe_raw(), x.unsafe_raw(), y.unsafe_raw()));
+}
+
+// cat (static)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::cat(First const &first, Rest const &...rest)
+{
+    using ResultShape =
+        typename[: detail::cat_shape_meta<typename First::shape,
+                                          typename Rest::shape...>(Dim):];
+    using Result =
+        Tensor<ResultShape,
+               detail::common_dtype_all(First::dtype, Rest::dtype...),
+               detail::common_device_all(First::device, Rest::device...),
+               Layout::Any>;
+    ::std::vector<::torch::Tensor> tensors{first.unsafe_raw(),
+                                           rest.unsafe_raw()...};
+    return Result::unsafe_move(
+        ::torch::cat(tensors, static_cast<::std::int64_t>(Dim)));
+}
+
+// stack (static)
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::stack(First const &first, Rest const &...rest)
+{
+    using ResultShape =
+        typename[: detail::stack_shape_meta<typename First::shape,
+                                            typename Rest::shape...>(Dim):];
+    using Result =
+        Tensor<ResultShape,
+               detail::common_dtype_all(First::dtype, Rest::dtype...),
+               detail::common_device_all(First::device, Rest::device...),
+               Layout::Any>;
+    ::std::vector<::torch::Tensor> tensors{first.unsafe_raw(),
+                                           rest.unsafe_raw()...};
+    return Result::unsafe_move(
+        ::torch::stack(tensors, static_cast<::std::int64_t>(Dim)));
+}
+
+// Free cat function
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto cat(First const &first, Rest const &...rest)
+{
+    return Tensor<typename First::shape, First::dtype, First::device,
+                  First::layout>::template cat<Dim>(first, rest...);
+}
+
+// Free stack function
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto stack(First const &first, Rest const &...rest)
+{
+    return Tensor<typename First::shape, First::dtype, First::device,
+                  First::layout>::template stack<Dim>(first, rest...);
+}
+
+} // namespace typetorch

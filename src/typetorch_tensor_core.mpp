@@ -1,0 +1,328 @@
+export module typetorch:tensor_core;
+
+import std;
+import libtorch;
+export import :types;
+export import :torch_mappings;
+export import :shape_meta;
+export import :common;
+export import :runtime_checks;
+
+#include "attributes.inc"
+#include "type_macros.inc"
+
+export namespace typetorch
+{
+
+namespace detail
+{
+
+consteval inline auto static_arange_size(::std::size_t start,
+                                         ::std::size_t end,
+                                         ::std::size_t step)
+    -> ::std::int64_t
+{
+    if (step == 0 || end < start)
+    {
+        return 0;
+    }
+    return static_cast<::std::int64_t>((end - start + step - 1) / step);
+}
+
+consteval inline auto common_dtype_all(DType first) noexcept -> DType
+{
+    return first;
+}
+
+template <class... Rest>
+consteval inline auto common_dtype_all(DType first, Rest... rest) noexcept -> DType
+{
+    ((first = common_dtype(first, rest)), ...);
+    return first;
+}
+
+consteval inline auto common_device_all(Device first) noexcept -> Device
+{
+    return first;
+}
+
+template <class... Rest>
+consteval inline auto common_device_all(Device first, Rest... rest) noexcept -> Device
+{
+    ((first = common_device(first, rest)), ...);
+    return first;
+}
+
+} // namespace detail
+
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind,
+          Layout LayoutKind>
+class Tensor
+{
+public:
+    using shape = ShapeKind;
+    static constexpr inline DType dtype{DTypeKind};
+    static constexpr inline Device device{DeviceKind};
+    static constexpr inline Layout layout{LayoutKind};
+
+    Tensor() = delete;
+    Tensor(Tensor const &) = delete;
+    auto operator=(Tensor const &) -> Tensor & = delete;
+
+    inline Tensor(Tensor &&) noexcept = default;
+    inline auto operator=(Tensor &&) noexcept -> Tensor & = default;
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE auto unsafe_raw() const & noexcept -> ::torch::Tensor const &
+    {
+        return impl_;
+    }
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE auto unwrap() && noexcept -> ::torch::Tensor
+    {
+        return ::std::move(impl_);
+    }
+
+    [[nodiscard]] inline auto sizes() const noexcept -> ::std::vector<::std::int64_t>
+    {
+        return impl_.sizes().vec();
+    }
+
+    // arange declarations — defined in :tensor_factory
+    template <::std::size_t start, ::std::size_t end,
+              DType dtype = DType::F32, Device device = Device::CPU>
+    [[nodiscard]] static inline auto arange();
+
+    template <::std::size_t seq, DType dtype = DType::F32,
+              Device device = Device::CPU>
+    [[nodiscard]] static inline auto arange();
+
+    template <::std::size_t start, ::std::size_t end, ::std::size_t step,
+              DType dtype = DType::F32, Device device = Device::CPU>
+    [[nodiscard]] static inline auto arange();
+
+    inline auto detach()
+    {
+        return impl_.detach();
+    }
+
+    [[nodiscard]] static inline auto retain(::torch::Tensor const &raw) -> Tensor
+    {
+        detail::check_tensor_compatible_runtime(raw, shape::dims, dtype, device,
+                                                layout);
+        return unsafe_retain(raw);
+    }
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE static auto unsafe_retain(::torch::Tensor const &raw) noexcept
+        -> Tensor
+    {
+        ::torch::Tensor retained{raw};
+        return Tensor(::std::move(retained));
+    }
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE static auto unsafe_move(::torch::Tensor &&raw) noexcept -> Tensor
+    {
+        return Tensor(::std::move(raw));
+    }
+
+    [[nodiscard]] inline auto contiguous() const noexcept
+        requires(layout == Layout::Contiguous)
+    {
+        return *this;
+    }
+
+    [[nodiscard]] inline auto contiguous()
+        requires(layout != Layout::Contiguous)
+    {
+        using Result = Tensor<shape, dtype, device, Layout::Contiguous>;
+        return Result::unsafe_move(unsafe_raw().contiguous());
+    }
+
+    template <Device ndevice, DType ndtype = dtype>
+    [[nodiscard]] inline auto to() &&
+    {
+        return Tensor<shape, ndtype, ndevice, layout>::unsafe_move(unsafe_raw().to(::torch::TensorOptions{}.dtype(detail::to_torch_dtype(ndtype)).device(detail::to_torch_device(ndevice))));
+    }
+
+    template <DType ndtype>
+    [[nodiscard]] inline auto to() &&
+    {
+        return Tensor<shape, ndtype, device, layout>::unsafe_move(unsafe_raw().to(::torch::TensorOptions{}.dtype(detail::to_torch_dtype(ndtype))));
+    }
+
+    [[nodiscard]] inline auto clone() const
+    {
+        return unsafe_move(this->unsafe_raw().clone());
+    }
+
+    [[nodiscard]] inline auto operator>(::torch::Scalar const &other) const
+    {
+        using Result = Tensor<shape, DType::Bool, device, layout>;
+        return Result::unsafe_move(::torch::gt(unsafe_raw(), other));
+    }
+
+    [[nodiscard]] inline auto checked_wrap(::torch::Tensor const &raw)
+    {
+        return retain(raw);
+    }
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE auto unsafe_wrap(::torch::Tensor const &raw) noexcept
+    {
+        return unsafe_retain(raw);
+    }
+
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE auto unsafe_wrap(::torch::Tensor &&raw) noexcept
+    {
+        return unsafe_move(raw);
+    }
+
+    // ====== Factory methods — defined in :tensor_factory ======
+    [[nodiscard]] static inline auto empty() -> Tensor;
+    [[nodiscard]] static inline auto zeros() -> Tensor;
+    [[nodiscard]] static inline auto ones() -> Tensor;
+    [[nodiscard]] static inline auto rand() -> Tensor;
+    [[nodiscard]] static inline auto randn() -> Tensor;
+
+    // ====== NN methods — defined in :tensor_nn ======
+    [[nodiscard]] inline auto relu() const;
+    inline void relu_();
+
+    [[nodiscard]] inline auto gelu(::c10::string_view approximate = "none") const;
+    inline void gelu_(::c10::string_view approximate = "none");
+
+    [[nodiscard]] inline auto softmax(::std::int64_t const dim) const;
+
+    template <auto Dim>
+    [[nodiscard]] inline auto softmax(
+        ::std::integral_constant<decltype(Dim), Dim>) const
+        requires(::std::integral<decltype(Dim)>);
+
+    template <::std::int64_t... NormalizedDims>
+    [[nodiscard]] inline auto layer_norm(double const eps = 1e-5,
+                                         bool const cudnn_enable = true) const;
+
+    template <TensorLike Weight, TensorLike Bias>
+    [[nodiscard]] inline auto layer_norm(Weight const &weight, Bias const &bias,
+                                         double const eps = 1e-5,
+                                         bool const cudnn_enable = true) const;
+
+    template <::std::int64_t... NormalizedDims>
+    [[nodiscard]] inline auto rms_norm() const;
+
+    template <::std::int64_t... NormalizedDims>
+    [[nodiscard]] inline auto rms_norm(double const eps) const;
+
+    template <TensorLike Weight>
+    [[nodiscard]] inline auto rms_norm(Weight const &weight) const;
+
+    template <TensorLike Weight>
+    [[nodiscard]] inline auto rms_norm(Weight const &weight, double const eps) const;
+
+    template <TensorLike Mask>
+    [[nodiscard]] inline auto masked_fill(Mask const &mask,
+                                          ::torch::Scalar const &value) const;
+
+    template <TensorLike Mask>
+    [[nodiscard]] inline auto mask_fill(Mask const &mask,
+                                        ::torch::Scalar const &value) const;
+
+    // ====== Arithmetic methods — defined in :tensor_arithmetic ======
+    template <TensorLike Other>
+    [[nodiscard]] TYPETORCH_ALWAYS_INLINE auto add(Other const &other,
+                                                    ::torch::Scalar const &alpha = 1) const;
+
+    [[nodiscard]] inline auto add(::torch::Scalar const &other,
+                                  ::torch::Scalar const &alpha = 1) const;
+
+    template <TensorLike Other>
+    [[nodiscard]] inline auto sub(Other const &other,
+                                  ::torch::Scalar const &alpha = 1) const;
+
+    [[nodiscard]] inline auto sub(::torch::Scalar const &other,
+                                  ::torch::Scalar const &alpha = 1) const;
+
+    template <TensorLike Other>
+    [[nodiscard]] inline auto mul(Other const &other) const;
+
+    [[nodiscard]] inline auto mul(::torch::Scalar const &other) const;
+
+    template <TensorLike Other>
+    [[nodiscard]] inline auto div(Other const &other) const;
+
+    [[nodiscard]] inline auto div(::torch::Scalar const &other) const;
+
+    template <TensorLike Other>
+    [[nodiscard]] inline auto matmul(Other const &other) const;
+
+    template <TensorLike Condition, TensorLike X, TensorLike Y>
+    [[nodiscard]] static inline auto where(Condition const &condition, X const &x,
+                                           Y const &y);
+
+    template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+    [[nodiscard]] static inline auto cat(First const &first, Rest const &...rest);
+
+    template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+    [[nodiscard]] static inline auto stack(First const &first, Rest const &...rest);
+
+    // ====== View methods — defined in :tensor_view ======
+    template <::std::int64_t Dim0, ::std::int64_t Dim1>
+    [[nodiscard]] inline auto transpose() &&;
+
+    template <::std::int64_t... Dims>
+    [[nodiscard]] inline auto permute() &&;
+
+    template <::std::int64_t... Dims>
+    [[nodiscard]] inline auto view() &&;
+
+    template <::std::int64_t... Dims>
+    [[nodiscard]] inline auto reshape() &&
+        requires(layout == Layout::Contiguous);
+
+    template <::std::int64_t... Dims>
+    [[nodiscard]] inline auto reshape() &&
+        requires(layout != Layout::Contiguous);
+
+    template <::std::int64_t StartDim = 0, ::std::int64_t EndDim = -1>
+    [[nodiscard]] inline auto flatten() const;
+
+    [[nodiscard]] inline auto squeeze() const;
+
+    template <::std::int64_t Dim>
+    [[nodiscard]] inline auto squeeze() const;
+
+    template <::std::int64_t Dim>
+    [[nodiscard]] inline auto unsqueeze() const;
+
+    static inline ::torch::TensorOptions const factory_options{
+        ::torch::TensorOptions{}
+            .dtype(detail::to_torch_dtype(dtype))
+            .device(detail::to_torch_device(device))};
+
+private:
+    consteval static inline void check_factory_layout_compiletime() noexcept
+    {
+        static_assert(layout != Layout::NonContiguous,
+                      "Tensor factory functions create contiguous tensors");
+    }
+
+    [[nodiscard]] static inline auto checked_move(::torch::Tensor raw) -> Tensor
+    {
+        detail::check_tensor_compatible_runtime(raw, shape::dims, dtype, device,
+                                                layout);
+        return unsafe_move(::std::move(raw));
+    }
+
+    inline explicit Tensor(::torch::Tensor raw) noexcept
+        : impl_{::std::move(raw)}
+    {}
+
+    ::torch::Tensor impl_;
+};
+
+// Free function declarations — defined in :tensor_arithmetic
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto cat(First const &first, Rest const &...rest);
+
+template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
+[[nodiscard]] inline auto stack(First const &first, Rest const &...rest);
+
+} // namespace typetorch

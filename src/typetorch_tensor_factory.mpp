@@ -1,0 +1,98 @@
+export module typetorch:tensor_factory;
+
+import :tensor_core;
+
+export namespace typetorch
+{
+
+// arange<start, end, dtype, device>
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <::std::size_t start, ::std::size_t end, DType dtype, Device device>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+{
+    return arange<start, end, 1, dtype, device>();
+}
+
+// arange<seq, dtype, device>
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <::std::size_t seq, DType dtype, Device device>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+{
+    return arange<0, seq, 1, dtype, device>();
+}
+
+// arange<start, end, step, dtype, device>
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+template <::std::size_t start, ::std::size_t end, ::std::size_t step,
+          DType dtype, Device device>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+{
+    static_assert(step != 0, "Tensor::arange() step must be non-zero");
+    static_assert(end >= start, "Tensor::arange() requires end >= start");
+    static_assert(dtype != DType::Any,
+                  "Tensor::arange() requires a concrete dtype");
+    static_assert(dtype != DType::Bool,
+                  "Tensor::arange() does not support bool dtype");
+    static_assert(device != Device::Any,
+                  "Tensor::arange() requires a concrete device");
+
+    using Result = ::typetorch::Tensor<
+        ::typetorch::Shape<detail::static_arange_size(start, end, step)>, dtype,
+        device, Layout::Contiguous>;
+    return Result::unsafe_move(
+        ::torch::arange(static_cast<::std::int64_t>(start),
+                        static_cast<::std::int64_t>(end),
+                        static_cast<::std::int64_t>(step), Result::factory_options));
+}
+
+// empty
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::empty() -> Tensor
+{
+    static_assert(!ShapeKind::dynamic_rank,
+                  "Tensor::empty() requires a fully static shape");
+    check_factory_layout_compiletime();
+    return unsafe_move(::torch::empty(ShapeKind::dims, factory_options));
+}
+
+// zeros
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::zeros() -> Tensor
+{
+    static_assert(!ShapeKind::dynamic_rank,
+                  "Tensor::zeros() requires a fully static shape");
+    check_factory_layout_compiletime();
+    return unsafe_move(::torch::zeros(ShapeKind::dims, factory_options));
+}
+
+// ones
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::ones() -> Tensor
+{
+    static_assert(!ShapeKind::dynamic_rank,
+                  "Tensor::ones() requires a fully static shape");
+    check_factory_layout_compiletime();
+    return unsafe_move(::torch::ones(ShapeKind::dims, factory_options));
+}
+
+// rand
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::rand() -> Tensor
+{
+    static_assert(!ShapeKind::dynamic_rank,
+                  "Tensor::rand() requires a fully static shape");
+    check_factory_layout_compiletime();
+    return unsafe_move(::torch::rand(ShapeKind::dims, factory_options));
+}
+
+// randn
+template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
+[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::randn() -> Tensor
+{
+    static_assert(!ShapeKind::dynamic_rank,
+                  "Tensor::randn() requires a fully static shape");
+    check_factory_layout_compiletime();
+    return unsafe_move(::torch::randn(ShapeKind::dims, factory_options));
+}
+
+} // namespace typetorch

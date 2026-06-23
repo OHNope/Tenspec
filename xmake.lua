@@ -87,6 +87,11 @@ local typetorch_module_files = {
     "src/typetorch_shape_meta.mpp",
     "src/typetorch_common.mpp",
     "src/typetorch_runtime_checks.mpp",
+    "src/typetorch_tensor_core.mpp",
+    "src/typetorch_tensor_factory.mpp",
+    "src/typetorch_tensor_arithmetic.mpp",
+    "src/typetorch_tensor_view.mpp",
+    "src/typetorch_tensor_nn.mpp",
     "src/typetorch_tensor.mpp",
     "src/components/typetorch_containers.mpp",
     "src/typetorch.mpp"
