@@ -102,6 +102,63 @@ consteval inline auto embedding_shape_meta(::std::span<::std::int64_t const> dim
 	return ::std::meta::substitute(^^Shape, args);
 }
 
+consteval inline auto conv2d_output_dim(::std::int64_t input,
+									   ::std::int64_t kernel,
+									   ::std::int64_t stride,
+									   ::std::int64_t padding,
+									   ::std::int64_t dilation)
+	-> ::std::int64_t
+{
+	if (input == dyn)
+	{
+		return dyn;
+	}
+
+	::std::int64_t const effective_kernel{dilation * (kernel - 1) + 1};
+	::std::int64_t const padded_input{input + 2 * padding};
+	if (padded_input < effective_kernel)
+	{
+		throw "Conv2d effective kernel exceeds padded input size";
+	}
+
+	return (padded_input - effective_kernel) / stride + 1;
+}
+
+consteval inline auto conv2d_shape_meta(
+	::std::span<::std::int64_t const> dims, ::std::int64_t in_channels,
+	::std::int64_t out_channels,
+	::std::span<::std::int64_t const> kernel_size,
+	::std::span<::std::int64_t const> stride,
+	::std::span<::std::int64_t const> padding,
+	::std::span<::std::int64_t const> dilation) -> ::std::meta::info
+{
+	if (dims.size() != 3 && dims.size() != 4)
+	{
+		throw "Conv2d input rank must be 3 or 4";
+	}
+
+	::std::size_t const channel_dim{dims.size() == 3 ? 0uz : 1uz};
+	if (!(dims[channel_dim] == dyn || dims[channel_dim] == in_channels))
+	{
+		throw "Conv2d input channel dimension must match in_channels";
+	}
+
+	::std::vector<::std::meta::info> args;
+	args.reserve(dims.size());
+	if (dims.size() == 4)
+	{
+		args.push_back(::std::meta::reflect_constant(dims[0]));
+	}
+	args.push_back(::std::meta::reflect_constant(out_channels));
+	args.push_back(::std::meta::reflect_constant(conv2d_output_dim(
+		dims[dims.size() - 2], kernel_size[0], stride[0], padding[0],
+		dilation[0])));
+	args.push_back(::std::meta::reflect_constant(conv2d_output_dim(
+		dims[dims.size() - 1], kernel_size[1], stride[1], padding[1],
+		dilation[1])));
+	return ::std::meta::substitute(^^Shape, args);
+}
+
 } // namespace detail
 
 } // namespace typetorch

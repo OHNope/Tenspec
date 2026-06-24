@@ -1,0 +1,195 @@
+export module typetorch:nnModules_conv2d;
+
+import std;
+import libtorch;
+import :types;
+import :torch_mappings;
+import :shape_meta;
+import :common;
+import :tensor;
+import :nnModules_core;
+
+export namespace typetorch
+{
+
+namespace detail
+{
+
+template <::std::int64_t InChannels, ::std::int64_t OutChannels,
+		  ShapeLike KernelSize, ShapeLike Stride = Shape<1, 1>,
+		  ShapeLike Padding = Shape<0, 0>,
+		  ShapeLike Dilation = Shape<1, 1>, ::std::int64_t Groups = 1,
+		  DType dtype = DType::F32, Device device = Device::CPU>
+struct TypedConv2dImpl : ::torch::nn::Conv2dImpl
+{
+	static_assert(InChannels > 0, "Conv2d in_channels must be positive");
+	static_assert(OutChannels > 0, "Conv2d out_channels must be positive");
+	static_assert(KernelSize::rank == 2, "Conv2d kernel_size must have rank 2");
+	static_assert(Stride::rank == 2, "Conv2d stride must have rank 2");
+	static_assert(Padding::rank == 2, "Conv2d padding must have rank 2");
+	static_assert(Dilation::rank == 2, "Conv2d dilation must have rank 2");
+	static_assert(KernelSize::dynamic_rank == 0,
+				  "Conv2d kernel_size must be fully static");
+	static_assert(Stride::dynamic_rank == 0,
+				  "Conv2d stride must be fully static");
+	static_assert(Padding::dynamic_rank == 0,
+				  "Conv2d padding must be fully static");
+	static_assert(Dilation::dynamic_rank == 0,
+				  "Conv2d dilation must be fully static");
+	static_assert(KernelSize::dims[0] > 0 && KernelSize::dims[1] > 0,
+				  "Conv2d kernel_size dimensions must be positive");
+	static_assert(Stride::dims[0] > 0 && Stride::dims[1] > 0,
+				  "Conv2d stride dimensions must be positive");
+	static_assert(Padding::dims[0] >= 0 && Padding::dims[1] >= 0,
+				  "Conv2d padding dimensions must be non-negative");
+	static_assert(Dilation::dims[0] > 0 && Dilation::dims[1] > 0,
+				  "Conv2d dilation dimensions must be positive");
+	static_assert(Groups > 0, "Conv2d groups must be positive");
+	static_assert(InChannels % Groups == 0,
+				  "Conv2d in_channels must be divisible by groups");
+	static_assert(OutChannels % Groups == 0,
+				  "Conv2d out_channels must be divisible by groups");
+	static_assert(dtype != DType::Any,
+				  "Conv2d parameters require a concrete dtype");
+	static_assert(device != Device::Any,
+				  "Conv2d parameters require a concrete device");
+	static_assert(::typetorch::detail::is_floating_dtype(dtype),
+				  "Conv2d parameters require a floating dtype");
+
+	explicit TypedConv2dImpl(bool with_bias = true,
+							::torch::nn::Conv2dOptions::padding_mode_t padding_mode =
+								::torch::kZeros)
+		: ::torch::nn::Conv2dImpl(make_options(with_bias, padding_mode))
+	{
+		weight.set_data(weight.to(parameter_options()));
+		if (bias.defined())
+		{
+			bias.set_data(bias.to(parameter_options()));
+		}
+	}
+
+	template <TensorLike Input>
+	[[nodiscard]] inline auto forward(Input const &x)
+	{
+		static_assert(Input::dtype == DType::Any ||
+						  ::typetorch::detail::is_floating_dtype(Input::dtype),
+					  "Conv2d input requires floating tensor dtype");
+		static_assert(Input::dtype == DType::Any || Input::dtype == dtype,
+					  "Conv2d input dtype must match parameter dtype");
+		static_assert(Input::device == Device::Any || Input::device == device,
+					  "Conv2d input device must match parameter device");
+
+		using InputShape = typename Input::shape;
+		using ResultShape = typename[:conv2d_shape_meta(
+			InputShape::dims, InChannels, OutChannels, KernelSize::dims,
+			Stride::dims, Padding::dims, Dilation::dims):];
+		using Result = Tensor<ResultShape, dtype, device, Layout::Any>;
+
+		return Result::unsafe_move(
+			::torch::nn::Conv2dImpl::forward(x.unsafe_raw()));
+	}
+
+	template <Device ndevice, DType ndtype = dtype>
+	[[nodiscard]] inline auto to() const
+	{
+		auto result{::std::make_shared<TypedConv2dImpl<
+			InChannels, OutChannels, KernelSize, Stride, Padding, Dilation,
+			Groups, ndtype, ndevice>>(this->options.bias(),
+									 this->options.padding_mode())};
+		result->weight.set_data(weight.to(container_options<ndtype, ndevice>()));
+		if (bias.defined())
+		{
+			result->bias.set_data(bias.to(container_options<ndtype, ndevice>()));
+		}
+		return result;
+	}
+
+	template <DType ndtype>
+	[[nodiscard]] inline auto to() const
+	{
+		return to<device, ndtype>();
+	}
+
+	[[nodiscard]] inline auto typed_weight() const
+	{
+		using Weight =
+			Tensor<Shape<OutChannels, InChannels / Groups, KernelSize::dims[0],
+						 KernelSize::dims[1]>,
+				   dtype, device>;
+		return Weight::unsafe_retain(weight);
+	}
+
+	[[nodiscard]] inline auto typed_bias() const
+	{
+		using Bias = Tensor<Shape<OutChannels>, dtype, device>;
+		return Bias::unsafe_retain(bias);
+	}
+
+	[[nodiscard]] static inline auto parameter_options()
+	{
+		return container_options<dtype, device>();
+	}
+
+	static constexpr ::std::int64_t in_channels{InChannels};
+	static constexpr ::std::int64_t out_channels{OutChannels};
+	static constexpr ::std::int64_t groups{Groups};
+	static constexpr DType dtype_kind{dtype};
+	static constexpr Device device_kind{device};
+
+private:
+	[[nodiscard]] static inline auto
+	make_options(bool with_bias,
+				 ::torch::nn::Conv2dOptions::padding_mode_t padding_mode)
+		-> ::torch::nn::Conv2dOptions
+	{
+		::torch::nn::Conv2dOptions options{
+			InChannels, OutChannels,
+			::std::array<::std::int64_t, 2>{KernelSize::dims[0],
+										   KernelSize::dims[1]}};
+		options.stride(::std::array<::std::int64_t, 2>{Stride::dims[0],
+													  Stride::dims[1]});
+		options.padding(::std::array<::std::int64_t, 2>{Padding::dims[0],
+													   Padding::dims[1]});
+		options.dilation(::std::array<::std::int64_t, 2>{Dilation::dims[0],
+														Dilation::dims[1]});
+		options.groups(Groups);
+		options.bias(with_bias);
+		options.padding_mode(::std::move(padding_mode));
+		return options;
+	}
+};
+
+} // namespace detail
+
+template <::std::int64_t InChannels, ::std::int64_t OutChannels,
+		  ShapeLike KernelSize, ShapeLike Stride = Shape<1, 1>,
+		  ShapeLike Padding = Shape<0, 0>,
+		  ShapeLike Dilation = Shape<1, 1>, ::std::int64_t Groups = 1,
+		  DType dtype = DType::F32, Device device = Device::CPU>
+class Conv2d
+	: public ::torch::nn::ModuleHolder<detail::TypedConv2dImpl<
+		  InChannels, OutChannels, KernelSize, Stride, Padding, Dilation,
+		  Groups, dtype, device>>
+{
+public:
+	using Impl = detail::TypedConv2dImpl<
+		InChannels, OutChannels, KernelSize, Stride, Padding, Dilation, Groups,
+		dtype, device>;
+	using ::torch::nn::ModuleHolder<Impl>::ModuleHolder;
+
+	template <Device ndevice, DType ndtype = dtype>
+	[[nodiscard]] inline auto to() const
+	{
+		return Conv2d<InChannels, OutChannels, KernelSize, Stride, Padding,
+					  Dilation, Groups, ndtype, ndevice>{
+			this->ptr()->template to<ndevice, ndtype>()};
+	}
+
+	template <DType ndtype>
+	[[nodiscard]] inline auto to() const
+	{
+		return to<device, ndtype>();
+	}
+};
+
+} // namespace typetorch

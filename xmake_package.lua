@@ -28,6 +28,7 @@ local typetorch_module_files = {
     "src/typetorch/tensor/tensor.mpp",
     "src/typetorch/nnModules/core.mpp",
     "src/typetorch/nnModules/linear.mpp",
+    "src/typetorch/nnModules/conv2d.mpp",
     "src/typetorch/nnModules/embedding.mpp",
     "src/typetorch/nnModules/layer_norm.mpp",
     "src/typetorch/nnModules/rms_norm.mpp",

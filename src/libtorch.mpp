@@ -27,6 +27,7 @@ using ::torch::kCUDA;
 using ::torch::kFloat;
 using ::torch::kHalf;
 using ::torch::kLong;
+using ::torch::kZeros;
 using ::torch::arange;
 using ::torch::empty;
 using ::torch::gelu;
@@ -56,6 +57,8 @@ using ::torch::nn::LinearImpl;
 using ::torch::nn::LinearOptions;
 using ::torch::nn::Module;
 using ::torch::nn::ModuleHolder;
+using ::torch::nn::Conv2dImpl;
+using ::torch::nn::Conv2dOptions;
 } // namespace nn
 } // namespace torch
 

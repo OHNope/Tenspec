@@ -33,6 +33,25 @@ using StaticCubePermutedContiguous =
 using StaticCubeIdentity =
 	typetorch::Tensor<typetorch::Shape<2, 3, 4>, typetorch::DType::F32,
 					typetorch::Device::CPU, typetorch::Layout::Contiguous>;
+using StaticImage =
+	typetorch::Tensor<typetorch::Shape<3, 32, 48>, typetorch::DType::F32,
+					typetorch::Device::CPU, typetorch::Layout::Contiguous>;
+using StaticImageConv =
+	typetorch::Tensor<typetorch::Shape<8, 16, 48>, typetorch::DType::F32,
+					typetorch::Device::CPU, typetorch::Layout::Any>;
+using DynamicImageBatch =
+	typetorch::Tensor<
+		typetorch::Shape<typetorch::dyn, 3, typetorch::dyn, 48>,
+		typetorch::DType::F32, typetorch::Device::CPU,
+		typetorch::Layout::Any>;
+using DynamicImageBatchConv =
+	typetorch::Tensor<
+		typetorch::Shape<typetorch::dyn, 8, typetorch::dyn, 48>,
+		typetorch::DType::F32, typetorch::Device::CPU,
+		typetorch::Layout::Any>;
+using TestConv2d =
+	typetorch::Conv2d<3, 8, typetorch::Shape<3, 5>,
+					  typetorch::Shape<2, 1>, typetorch::Shape<1, 2>>;
 
 static_assert(::std::is_same_v<decltype(Vector::retain(
 								   ::std::declval<::torch::Tensor const &>())),
@@ -96,8 +115,32 @@ static_assert(::std::is_same_v<
 			  typetorch::Tensor<typetorch::Shape<3>, typetorch::DType::I64,
 							  typetorch::Device::CPU,
 							  typetorch::Layout::Contiguous>>);
+static_assert(::std::is_same_v<
+			  decltype(::std::declval<TestConv2d::Impl &>().forward(
+				  ::std::declval<StaticImage const &>())),
+			  StaticImageConv>);
+static_assert(::std::is_same_v<
+			  decltype(::std::declval<TestConv2d::Impl &>().forward(
+				  ::std::declval<DynamicImageBatch const &>())),
+			  DynamicImageBatchConv>);
+static_assert(::std::is_same_v<
+			  decltype(::std::declval<TestConv2d::Impl const &>().typed_weight()),
+			  typetorch::Tensor<typetorch::Shape<8, 3, 3, 5>,
+							  typetorch::DType::F32,
+							  typetorch::Device::CPU>>);
+static_assert(::std::is_default_constructible_v<TestConv2d>);
 
 ::torch::Tensor fixed_linear_weight();
+
+TestConv2d make_test_conv2d()
+{
+	return TestConv2d{};
+}
+
+auto convert_test_conv2d(TestConv2d const &conv)
+{
+	return conv.to<typetorch::Device::CPU, typetorch::DType::F16>();
+}
 
 } // namespace detail
 

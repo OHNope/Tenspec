@@ -2,6 +2,7 @@ export module typetorch:nnModules;
 
 export import :nnModules_core;
 export import :nnModules_linear;
+export import :nnModules_conv2d;
 export import :nnModules_embedding;
 export import :nnModules_layer_norm;
 export import :nnModules_rms_norm;
