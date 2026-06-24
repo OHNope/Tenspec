@@ -28,7 +28,9 @@ package("typetorch")
     set_license("MIT")
     set_sourcedir(path.join(os.scriptdir(), "../../.."))
 
-    add_deps("libtorch-bin 2.8.0+cu128", {alias = "libtorch"})
+    local libtorch_variant = os.getenv("TYPETORCH_LIBTORCH_VARIANT") or "cu128"
+    local libtorch_version = libtorch_variant == "cpu" and "2.8.0+cpu" or "2.8.0+cu128"
+    add_deps("libtorch-bin " .. libtorch_version, {alias = "libtorch"})
 
     on_install(function (package)
         local moddir = package:installdir("modules")

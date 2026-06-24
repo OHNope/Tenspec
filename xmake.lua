@@ -78,7 +78,9 @@ if configured_python_include then
     add_sysincludedirs(configured_python_include)
 end
 
-add_requires("libtorch-bin 2.8.0+cu128", {alias = "libtorch"})
+local libtorch_variant = os.getenv("TYPETORCH_LIBTORCH_VARIANT") or "cu128"
+local libtorch_version = libtorch_variant == "cpu" and "2.8.0+cpu" or "2.8.0+cu128"
+add_requires("libtorch-bin " .. libtorch_version, {alias = "libtorch"})
 
 local typetorch_module_files = {
     "src/libtorch.mpp",

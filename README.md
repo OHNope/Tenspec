@@ -1,3 +1,4 @@
+[![CI](https://github.com/OHNope/Typetorch/actions/workflows/ci.yml/badge.svg)](https://github.com/OHNope/Typetorch/actions/workflows/ci.yml)
 # Typetorch
 
 Typetorch is an experimental C++26 library that makes tensor shape, dtype, device, and layout part of

@@ -20,6 +20,7 @@ env:
   PYTHON: python3
   BUILD_JOBS: "2"
   XMAKE_ROOT: "y"
+  TYPETORCH_LIBTORCH_VARIANT: cpu
 
 jobs:
   changes:
@@ -72,61 +73,8 @@ jobs:
 
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
-  environment:
-    name: Environment probe
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
-    runs-on: ubuntu-24.04
-    container:
-      image: gcc:16
-    timeout-minutes: 30
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install system packages
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            ca-certificates curl unzip git file binutils \
-            python3 python3-dev python3-venv pkg-config
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Cache xmake installation
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/bin/xmake
-            ~/.local/bin/xrepo
-            ~/.local/share/xmake
-          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-install-
-
-      - name: Install xmake
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v xmake >/dev/null 2>&1; then
-            bash scripts/bootstrap_xmake.sh
-          fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          xmake --version
-
-      - name: Configure Python include path
-        run: |
-          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
-          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
-
-      - name: Check environment
-        run: |
-          source scripts/env.sh
-          bash scripts/check_env.sh
-
-  core-tests:
-    name: Build and run core C++ tests
+  package-cache:
+    name: Prepare xmake package cache
     needs: changes
     if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-24.04
@@ -147,8 +95,9 @@ jobs:
             python3 python3-dev python3-venv pkg-config
           rm -rf /var/lib/apt/lists/*
 
-      - name: Cache xmake installation
-        uses: actions/cache@v4
+      - name: Restore xmake installation
+        id: xmake-install-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.local/bin/xmake
@@ -158,15 +107,85 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gcc16-xmake-install-
 
-      - name: Cache xmake packages
-        uses: actions/cache@v4
+      - name: Install xmake
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          if ! command -v xmake >/dev/null 2>&1; then
+            bash scripts/bootstrap_xmake.sh
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          xmake --version
+
+      - name: Save xmake installation
+        if: steps.xmake-install-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
           path: |
-            ~/.xmake/packages
-            ~/.xmake/cache
-          key: ${{ runner.os }}-gcc16-xmake-${{ hashFiles('xmake.lua', 'packages/l/libtorch-bin/xmake.lua') }}
+            ~/.local/bin/xmake
+            ~/.local/bin/xrepo
+            ~/.local/share/xmake
+          key: ${{ steps.xmake-install-cache.outputs.cache-primary-key }}
+
+      - name: Restore xmake packages
+        id: xmake-package-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.xmake/packages
+          key: ${{ runner.os }}-gcc16-xmake-packages-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua') }}
           restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-
+            ${{ runner.os }}-gcc16-xmake-packages-cpu-
+
+      - name: Install xmake packages
+        if: steps.xmake-package-cache.outputs.cache-hit != 'true'
+        run: |
+          source scripts/env.sh
+          xmake require --yes
+
+      - name: Save xmake packages
+        if: steps.xmake-package-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.xmake/packages
+          key: ${{ steps.xmake-package-cache.outputs.cache-primary-key }}
+
+  build-and-test:
+    name: Build and run main test suite
+    needs: [changes, package-cache]
+    if: needs.changes.outputs.run == 'true' && needs.package-cache.result == 'success'
+    runs-on: ubuntu-24.04
+    container:
+      image: gcc:16
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl unzip git file binutils \
+            python3 python3-dev python3-venv pkg-config
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Restore xmake installation
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.local/bin/xmake
+            ~/.local/bin/xrepo
+            ~/.local/share/xmake
+          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-gcc16-xmake-install-
+
+      - name: Restore xmake packages
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.xmake/packages
+          key: ${{ runner.os }}-gcc16-xmake-packages-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua') }}
 
       - name: Cache xmake build outputs
         uses: actions/cache@v4
@@ -174,10 +193,10 @@ jobs:
           path: |
             .xmake
             build
-          key: ${{ runner.os }}-gcc16-core-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
+          key: ${{ runner.os }}-gcc16-main-build-cpu-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-gcc16-core-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-
-            ${{ runner.os }}-gcc16-core-build-
+            ${{ runner.os }}-gcc16-main-build-cpu-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-
+            ${{ runner.os }}-gcc16-main-build-cpu-
 
       - name: Install xmake
         run: |
@@ -198,6 +217,11 @@ jobs:
         run: |
           source scripts/env.sh
           xmake f -m debug --yes --python="$PYTHON"
+
+      - name: Check environment
+        run: |
+          source scripts/env.sh
+          bash scripts/check_env.sh
 
       - name: Build typetorch_cpp_debug
         run: |
@@ -219,163 +243,10 @@ jobs:
           source scripts/env.sh
           xmake run typetorch_tensor_arithmetic_test
 
-  capi-extension:
-    name: Build Python C API extension
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
-    runs-on: ubuntu-24.04
-    container:
-      image: gcc:16
-    timeout-minutes: 120
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install system packages
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            ca-certificates curl unzip git file binutils \
-            python3 python3-dev python3-venv pkg-config
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Cache xmake installation
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/bin/xmake
-            ~/.local/bin/xrepo
-            ~/.local/share/xmake
-          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-install-
-
-      - name: Cache xmake packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.xmake/packages
-            ~/.xmake/cache
-          key: ${{ runner.os }}-gcc16-xmake-${{ hashFiles('xmake.lua', 'packages/l/libtorch-bin/xmake.lua') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-
-
-      - name: Cache xmake build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            .xmake
-            build
-          key: ${{ runner.os }}-gcc16-capi-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-capi-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-
-            ${{ runner.os }}-gcc16-capi-build-
-
-      - name: Install xmake
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v xmake >/dev/null 2>&1; then
-            bash scripts/bootstrap_xmake.sh
-          fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          xmake --version
-
-      - name: Configure Python include path
-        run: |
-          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
-          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
-
-      - name: Configure debug build
-        run: |
-          source scripts/env.sh
-          xmake f -m debug --yes --python="$PYTHON"
-
       - name: Build Python C API extension
         run: |
           source scripts/env.sh
           xmake build -j "$BUILD_JOBS" typetorch_capi_ext
-
-  probes:
-    name: Build and run size probes
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
-    runs-on: ubuntu-24.04
-    container:
-      image: gcc:16
-    timeout-minutes: 120
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install system packages
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            ca-certificates curl unzip git file binutils \
-            python3 python3-dev python3-venv pkg-config
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Cache xmake installation
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.local/bin/xmake
-            ~/.local/bin/xrepo
-            ~/.local/share/xmake
-          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-install-
-
-      - name: Cache xmake packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.xmake/packages
-            ~/.xmake/cache
-          key: ${{ runner.os }}-gcc16-xmake-${{ hashFiles('xmake.lua', 'packages/l/libtorch-bin/xmake.lua') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-
-
-      - name: Cache xmake build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            .xmake
-            build
-          key: ${{ runner.os }}-gcc16-probes-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-probes-build-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua', 'scripts/env.sh') }}-
-            ${{ runner.os }}-gcc16-probes-build-
-
-      - name: Install xmake
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v xmake >/dev/null 2>&1; then
-            bash scripts/bootstrap_xmake.sh
-          fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          xmake --version
-
-      - name: Configure Python include path
-        run: |
-          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
-          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
-
-      - name: Configure debug build
-        run: |
-          source scripts/env.sh
-          xmake f -m debug --yes --python="$PYTHON"
-
-      - name: Check environment
-        run: |
-          source scripts/env.sh
-          bash scripts/check_env.sh
 
       - name: Run size probes
         run: |
@@ -384,8 +255,8 @@ jobs:
 
   package-consumer:
     name: Test add_requires() package consumption
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
+    needs: [changes, package-cache]
+    if: needs.changes.outputs.run == 'true' && needs.package-cache.result == 'success'
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
@@ -402,8 +273,8 @@ jobs:
           apt-get install -y --no-install-recommends             ca-certificates curl unzip git file binutils             python3 python3-dev python3-venv pkg-config
           rm -rf /var/lib/apt/lists/*
 
-      - name: Cache xmake installation
-        uses: actions/cache@v4
+      - name: Restore xmake installation
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.local/bin/xmake
@@ -413,15 +284,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gcc16-xmake-install-
 
-      - name: Cache xmake packages
-        uses: actions/cache@v4
+      - name: Restore xmake packages
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            ~/.xmake/packages
-            ~/.xmake/cache
-          key: ${{ runner.os }}-gcc16-xmake-${{ hashFiles('xmake.lua', 'packages/**/xmake.lua') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-
+          path: ~/.xmake/packages
+          key: ${{ runner.os }}-gcc16-xmake-packages-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua') }}
 
       - name: Cache package-consumer build outputs
         uses: actions/cache@v4
@@ -429,10 +296,10 @@ jobs:
           path: |
             tests/package-consumer/.xmake
             tests/package-consumer/build
-          key: ${{ runner.os }}-gcc16-package-consumer-build-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua', 'tests/package-consumer/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
+          key: ${{ runner.os }}-gcc16-package-consumer-build-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua', 'tests/package-consumer/xmake.lua', 'scripts/env.sh') }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-gcc16-package-consumer-build-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua', 'tests/package-consumer/xmake.lua', 'scripts/env.sh') }}-
-            ${{ runner.os }}-gcc16-package-consumer-build-
+            ${{ runner.os }}-gcc16-package-consumer-build-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua', 'tests/package-consumer/xmake.lua', 'scripts/env.sh') }}-
+            ${{ runner.os }}-gcc16-package-consumer-build-cpu-
 
       - name: Install xmake
         run: |
