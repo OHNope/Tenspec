@@ -2,6 +2,7 @@ export module typetorch:tensor_nn;
 
 import :tensor_core;
 
+#include "attributes.inc"
 #include "type_macros.inc"
 
 export namespace typetorch
@@ -9,7 +10,7 @@ export namespace typetorch
 
 // relu(input)
 template <TensorLike Input>
-[[nodiscard]] inline auto relu(Input const &input)
+[[nodiscard]] TYPETORCH_HOT inline auto relu(Input const &input)
 {
     using Result = Tensor<typename Input::shape, Input::dtype, Input::device, Input::layout>;
     return Result::unsafe_move(input.unsafe_raw().relu());
@@ -17,14 +18,14 @@ template <TensorLike Input>
 
 // relu_
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-inline void Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::relu_()
+TYPETORCH_HOT inline void Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::relu_()
 {
     unsafe_raw().relu_();
 }
 
 // gelu(input)
 template <TensorLike Input>
-[[nodiscard]] inline auto gelu(Input const &input, ::c10::string_view approximate = "none")
+[[nodiscard]] TYPETORCH_HOT inline auto gelu(Input const &input, ::c10::string_view approximate = "none")
 {
     static_assert(Input::dtype == DType::Any || detail::is_floating_dtype(Input::dtype),
                   "gelu() requires floating tensor dtype");
@@ -34,7 +35,7 @@ template <TensorLike Input>
 
 // gelu_
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-inline void Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::gelu_(::c10::string_view approximate)
+TYPETORCH_HOT inline void Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::gelu_(::c10::string_view approximate)
 {
     static_assert(DTypeKind == DType::Any || detail::is_floating_dtype(DTypeKind),
                   "Tensor::gelu_() requires floating tensor dtype");
@@ -44,7 +45,7 @@ inline void Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::gelu_(::c10::s
 
 // softmax(input, dim)
 template <TensorLike Input>
-[[nodiscard]] inline auto softmax(Input const &input, ::std::int64_t const dim)
+[[nodiscard]] TYPETORCH_HOT inline auto softmax(Input const &input, ::std::int64_t const dim)
 {
     static_assert(Input::dtype == DType::Any || detail::is_floating_dtype(Input::dtype),
                   "softmax() requires floating tensor dtype");
@@ -54,7 +55,7 @@ template <TensorLike Input>
 
 // softmax(input, integral_constant)
 template <TensorLike Input, auto Dim>
-[[nodiscard]] inline auto softmax(
+[[nodiscard]] TYPETORCH_HOT inline auto softmax(
     Input const &input, ::std::integral_constant<decltype(Dim), Dim>)
     requires(::std::integral<decltype(Dim)>)
 {
@@ -68,7 +69,7 @@ template <TensorLike Input, auto Dim>
 // masked_fill
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Mask>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::masked_fill(Mask const &mask, ::torch::Scalar const &value) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::masked_fill(Mask const &mask, ::torch::Scalar const &value) const
 {
     using MaskShape = typename Mask::shape;
     static_assert(Mask::dtype == DType::Any || Mask::dtype == DType::Bool,
@@ -83,7 +84,7 @@ template <TensorLike Mask>
 // mask_fill (alias)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Mask>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mask_fill(Mask const &mask, ::torch::Scalar const &value) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mask_fill(Mask const &mask, ::torch::Scalar const &value) const
 {
     return masked_fill(mask, value);
 }

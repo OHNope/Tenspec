@@ -9,6 +9,8 @@ import :common;
 import :tensor;
 import :nnModules_core;
 
+#include "attributes.inc"
+
 export namespace typetorch
 {
 
@@ -35,7 +37,7 @@ struct TypedLinearImpl : ::torch::nn::LinearImpl
 	}
 
 	template <TensorLike Input>
-	[[nodiscard]] inline auto forward(Input const &x)
+	[[nodiscard]] TYPETORCH_HOT inline auto forward(Input const &x)
 	{
 		using InputShape = typename Input::shape;
 		using ResultShape =

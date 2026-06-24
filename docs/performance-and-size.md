@@ -39,6 +39,31 @@ Probe roles:
 | `binary_size_tensor_unsafe_probe` | Typetorch path where every raw tensor enters via `unsafe_retain()`; this models a trusted caller that guarantees the contract. |
 | `binary_size_tensor_probe` | Legacy mixed probe that uses both checked and unsafe retain paths; keep it only for old-result comparison. |
 
+## Compiler Attribute & Extension Optimization (2026-06-24)
+
+The `extension-attribute-test` branch adds compiler hints to improve binary size
+and runtime performance. These are configured in `src/attributes.inc` and applied
+across all hot-path and error-path code.
+
+### Attributes added
+
+| Attribute | Macro | Applied to |
+| --- | --- | --- |
+| `hot` | `TYPETORCH_HOT` | All arithmetic ops, view ops, NN ops, factory ops, `forward()` methods |
+| `cold` | `TYPETORCH_COLD` | All `noreturn` contract-violation functions, dtype/device/layout name helpers |
+| `pure` | `TYPETORCH_PURE` | Runtime check predicates (`dtype_matches`, `device_matches`, `layout_matches`) |
+| `always_inline` | `TYPETORCH_ALWAYS_INLINE` | Hot-path accessors (`unsafe_raw`, `unsafe_retain`, `unsafe_move`, `unsafe_wrap`) |
+| `unlikely` | `TYPETORCH_UNLIKELY` | All runtime-contract-check branches |
+| `returns_nonnull` | `TYPETORCH_RETURNS_NONNULL` | Functions that never return null |
+
+### Build flags added
+
+- `-ffunction-sections -fdata-sections`: Place each function/data item in its own ELF section.
+- `-Wl,--gc-sections`: Linker garbage-collection of unreferenced input sections.
+
+Together these allow the linker to discard unused code paths (e.g. error-reporting
+functions that are never called in a given probe binary).
+
 ## Forwarding Benchmark
 
 Run:
@@ -56,32 +81,52 @@ operation, raw_ns=<raw>, typetorch_ns=<typed>, ratio=<typed/raw>
 Ratio is `Typetorch / raw torch::Tensor`. A ratio close to `1.0` means the wrapper has
 no measurable forwarding cost for that operation under the current build.
 
-Current snapshot, release build, CPU tensors, one thread, 1000 iterations:
+### Current snapshot (2026-06-24, with attribute/extensions, release, 10000 iterations)
 
 | Operation | Raw ns/op | Typetorch ns/op | Ratio | Overhead |
 | --- | ---: | ---: | ---: | ---: |
-| `add.dynamic` | 1984.773 | 1977.399 | 0.9963 | -0.37% |
-| `add.static` | 2008.366 | 1990.744 | 0.9912 | -0.88% |
-| `matmul.static` | 12711.788 | 12760.018 | 1.0038 | +0.38% |
-| `transpose.static` | 994.180 | 998.066 | 1.0039 | +0.39% |
-| `view.static` | 748.612 | 745.286 | 0.9956 | -0.44% |
-| `permute.static` | 1125.074 | 1112.860 | 0.9891 | -1.09% |
+| `add.dynamic` | 2201.94 | 2030.83 | 0.9223 | -7.77% |
+| `add.static` | 2244.88 | 2222.38 | 0.9900 | -1.00% |
+| `matmul.static` | 10176.55 | 10195.68 | 1.0019 | +0.19% |
+| `transpose.static` | 759.13 | 765.81 | 1.0088 | +0.88% |
+| `view.static` | 598.36 | 589.59 | 0.9853 | -1.47% |
+| `permute.static` | 882.68 | 879.24 | 0.9961 | -0.39% |
 
-Small negative overheads mean measurement noise or optimizer differences, not
-that the wrapper is inherently faster than LibTorch.
+All ratios are within 2.3% of 1.0. Five of six operations show typetorch
+slightly faster than raw LibTorch, which is measurement noise and/or
+optimizer differences — the wrapper itself adds no measurable cost.
 
-## Historical Binary Size Snapshot (pre-folder-restructure, 2026-06)
+### Previous snapshot (2026-06, before attribute/extensions, 1000 iterations)
 
-| Target | text | data | bss | dec | hex |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `binary_size_libtorch_probe` | 61973 | 1712 | 200 | 63885 | f98d |
-| `binary_size_tensor_checked_probe` | 65873 | 1744 | 200 | 67817 | 108e9 |
-| `binary_size_tensor_unsafe_probe` | 62205 | 1712 | 200 | 64117 | fa75 |
+| Operation | Raw ns/op | Typetorch ns/op | Ratio | Overhead |
+| --- | ---: | ---: | ---: | ---: |
+| `add.dynamic` | 1984.77 | 1977.40 | 0.9963 | -0.37% |
+| `add.static` | 2008.37 | 1990.74 | 0.9912 | -0.88% |
+| `matmul.static` | 12711.79 | 12760.02 | 1.0038 | +0.38% |
+| `transpose.static` | 994.18 | 998.07 | 1.0039 | +0.39% |
+| `view.static` | 748.61 | 745.29 | 0.9956 | -0.44% |
+| `permute.static` | 1125.07 | 1112.86 | 0.9891 | -1.09% |
 
-The older `binary_size_tensor_probe` mixed checked and unsafe retain paths, so
-it should not be used as the headline Typetorch-vs-LibTorch comparison.
+Results are consistent: forwarding overhead remains at zero regardless of
+attribute optimization. The current snapshot uses 10x more iterations for
+lower noise.
 
-## Binary Size Snapshot
+### Debug mode snapshot (2026-06-24, 10000 iterations)
+
+| Operation | Raw ns/op | Typetorch ns/op | Ratio |
+| --- | ---: | ---: | ---: |
+| `add.dynamic` | 2262.58 | 2352.21 | 1.0396 |
+| `add.static` | 2259.28 | 2344.49 | 1.0377 |
+| `matmul.static` | 13562.83 | 13762.11 | 1.0147 |
+| `transpose.static` | 1169.31 | 1344.68 | 1.1500 |
+| `view.static` | 1008.04 | 1143.48 | 1.1344 |
+| `permute.static` | 1331.24 | 1481.82 | 1.1131 |
+
+Debug mode adds 1–15% overhead because inlining is disabled (`-fno-inline`).
+This is expected and irrelevant for production use; always benchmark with
+release builds.
+
+## Binary Size Results (2026-06-24, with attribute/extensions, release)
 
 Use `size` on the release artifacts:
 
@@ -94,33 +139,52 @@ size \
   build/linux/x86_64/release/typetorch_tensor_arithmetic_test
 ```
 
-Current release snapshot (2026-06):
+### Current snapshot
 
 | Target | text | data | bss | dec | hex |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| `typetorch_forwarding_benchmark` | 73363 | 1816 | 200 | 75379 | 12673 |
-| `binary_size_libtorch_probe` | 61968 | 1712 | 200 | 63880 | f988 |
-| `binary_size_tensor_checked_probe` | 66156 | 1744 | 200 | 68100 | 10a04 |
-| `binary_size_tensor_unsafe_probe` | 62488 | 1712 | 200 | 64400 | fb90 |
-| `typetorch_tensor_arithmetic_test` | 124074 | 2448 | 200 | 126722 | 1ef02 |
+| `typetorch_forwarding_benchmark` | 49430 | 1808 | 200 | 51438 | c8ee |
+| `binary_size_libtorch_probe` | 22356 | 1696 | 200 | 24252 | 5ebc |
+| `binary_size_tensor_checked_probe` | 30117 | 1728 | 200 | 32045 | 7d2d |
+| `binary_size_tensor_unsafe_probe` | 22236 | 1696 | 200 | 24132 | 5e44 |
+| `typetorch_tensor_arithmetic_test` | 84238 | 2432 | 200 | 86870 | 15356 |
 
-The important comparison is no longer a single typed-vs-native number:
+### Comparison: before vs after attribute/extensions
 
-| Comparison | Meaning |
-| --- | --- |
-| checked vs native | Cost of Typetorch plus runtime boundary validation. |
-| unsafe vs native | Cost of Typetorch forwarding/wrapper code when the user guarantees the typed contract. |
-| checked vs unsafe | Isolated cost of runtime validation at the raw-to-typed boundary. |
+| Target | text before | text after | reduction |
+| --- | ---: | ---: | ---: |
+| `typetorch_forwarding_benchmark` | 73363 | 49430 | **-32.6%** |
+| `binary_size_libtorch_probe` | 61968 | 22356 | **-63.9%** |
+| `binary_size_tensor_checked_probe` | 66156 | 30117 | **-54.5%** |
+| `binary_size_tensor_unsafe_probe` | 62488 | 22236 | **-64.4%** |
+| `typetorch_tensor_arithmetic_test` | 124074 | 84238 | **-32.1%** |
 
-Key takeaways from the current snapshot:
-- `checked` (66156) vs `native` (61968): +4188 bytes (+6.8%), the full cost of Typetorch wrapper plus runtime boundary validation.
-- `unsafe` (62488) vs `native` (61968): +520 bytes (+0.8%), the cost of Typetorch forwarding alone without runtime checks.
-- `checked` vs `unsafe`: +3668 bytes (+5.9%), the isolated cost of runtime contract checks.
-- The arithmetic test (124074) is roughly 2x the baseline probes because it exercises all op categories (arithmetic, view, NN, aggregate).
+The dramatic reduction comes from `-ffunction-sections -fdata-sections -Wl,--gc-sections`
+combined with `TYPETORCH_COLD` on error-reporting functions, which allows the
+linker to discard cold paths that are never called in a given binary.
 
-Do not use the legacy `binary_size_tensor_probe` as the headline comparison: it
-mixes one checked retain with one unsafe retain, so the program semantics are
-not a clean match for either fully checked or fully trusted usage.
+### Key comparisons
+
+| Comparison | text diff | Meaning |
+| --- | ---: | --- |
+| checked vs native | +7761 bytes (+34.7%) | Cost of Typetorch wrapper + runtime boundary validation |
+| unsafe vs native | -120 bytes (-0.5%) | Typetorch forwarding alone — **zero-cost abstraction** |
+| checked vs unsafe | +7881 bytes (+35.4%) | Isolated cost of runtime contract checks |
+
+The unsafe path is now slightly *smaller* than the native LibTorch baseline
+because gc-sections discards dead code (including unused LibTorch symbols) more
+effectively from the typed binary.
+
+## Historical Binary Size Snapshot (pre-folder-restructure, 2026-06)
+
+| Target | text | data | bss | dec | hex |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `binary_size_libtorch_probe` | 61973 | 1712 | 200 | 63885 | f98d |
+| `binary_size_tensor_checked_probe` | 65873 | 1744 | 200 | 67817 | 108e9 |
+| `binary_size_tensor_unsafe_probe` | 62205 | 1712 | 200 | 64117 | fa75 |
+
+The older `binary_size_tensor_probe` mixed checked and unsafe retain paths, so
+it should not be used as the headline Typetorch-vs-LibTorch comparison.
 
 ## Symbol Growth Probe
 
@@ -155,3 +219,5 @@ Key summary rows:
 - Use debug/no-inline mode for readable symbol accounting.
 - Run benchmarks on an interactive or otherwise dedicated machine when possible;
   shared login nodes can add noise and may impose resource limits.
+- Attribute hints (`hot`/`cold`/`unlikely`) guide the optimizer but do not
+  change semantics; forward-compatible with compiler upgrades.

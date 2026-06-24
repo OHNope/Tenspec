@@ -11,7 +11,7 @@ export namespace typetorch
 // add(Other)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Other>
-[[nodiscard]] TYPETORCH_ALWAYS_INLINE auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(Other const &other, ::torch::Scalar const &alpha) const
+[[nodiscard]] TYPETORCH_HOT TYPETORCH_ALWAYS_INLINE auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(Other const &other, ::torch::Scalar const &alpha) const
 {
     using OtherShape = typename Other::shape;
     static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
@@ -25,7 +25,7 @@ template <TensorLike Other>
 
 // add(scalar)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::add(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
 {
     return unsafe_move(unsafe_raw().add(other, alpha));
 }
@@ -33,7 +33,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 // sub(Other)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Other>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(Other const &other, ::torch::Scalar const &alpha) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(Other const &other, ::torch::Scalar const &alpha) const
 {
     using OtherShape = typename Other::shape;
     static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
@@ -47,7 +47,7 @@ template <TensorLike Other>
 
 // sub(scalar)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::sub(::torch::Scalar const &other, ::torch::Scalar const &alpha) const
 {
     return unsafe_move(unsafe_raw().sub(other, alpha));
 }
@@ -55,7 +55,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 // mul(Other)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Other>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(Other const &other) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(Other const &other) const
 {
     using OtherShape = typename Other::shape;
     static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
@@ -69,7 +69,7 @@ template <TensorLike Other>
 
 // mul(scalar)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(::torch::Scalar const &other) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::mul(::torch::Scalar const &other) const
 {
     return unsafe_move(unsafe_raw().mul(other));
 }
@@ -77,7 +77,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 // div(Other)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Other>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(Other const &other) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(Other const &other) const
 {
     using OtherShape = typename Other::shape;
     static_assert(BROADCAST_COMPATIBLE(ShapeKind, OtherShape),
@@ -91,7 +91,7 @@ template <TensorLike Other>
 
 // div(scalar)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(::torch::Scalar const &other) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::div(::torch::Scalar const &other) const
 {
     return unsafe_move(unsafe_raw().div(other));
 }
@@ -99,7 +99,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 // matmul
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Other>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::matmul(Other const &other) const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::matmul(Other const &other) const
 {
     using OtherShape = typename Other::shape;
     using Result =
@@ -112,7 +112,7 @@ template <TensorLike Other>
 // where
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <TensorLike Condition, TensorLike X, TensorLike Y>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::where(Condition const &condition, X const &x, Y const &y)
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::where(Condition const &condition, X const &x, Y const &y)
 {
     using ConditionShape = typename Condition::shape;
     using XShape = typename X::shape;
@@ -136,7 +136,7 @@ template <TensorLike Condition, TensorLike X, TensorLike Y>
 // cat (static)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::cat(First const &first, Rest const &...rest)
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::cat(First const &first, Rest const &...rest)
 {
     using ResultShape =
         typename[: detail::cat_shape_meta<typename First::shape,
@@ -155,7 +155,7 @@ template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
 // stack (static)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::stack(First const &first, Rest const &...rest)
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::stack(First const &first, Rest const &...rest)
 {
     using ResultShape =
         typename[: detail::stack_shape_meta<typename First::shape,
@@ -173,7 +173,7 @@ template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
 
 // Free cat function
 template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
-[[nodiscard]] inline auto cat(First const &first, Rest const &...rest)
+[[nodiscard]] TYPETORCH_HOT inline auto cat(First const &first, Rest const &...rest)
 {
     return Tensor<typename First::shape, First::dtype, First::device,
                   First::layout>::template cat<Dim>(first, rest...);
@@ -181,7 +181,7 @@ template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
 
 // Free stack function
 template <::std::int64_t Dim, TensorLike First, TensorLike... Rest>
-[[nodiscard]] inline auto stack(First const &first, Rest const &...rest)
+[[nodiscard]] TYPETORCH_HOT inline auto stack(First const &first, Rest const &...rest)
 {
     return Tensor<typename First::shape, First::dtype, First::device,
                   First::layout>::template stack<Dim>(first, rest...);

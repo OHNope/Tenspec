@@ -2,13 +2,15 @@ export module typetorch:tensor_factory;
 
 import :tensor_core;
 
+#include "attributes.inc"
+
 export namespace typetorch
 {
 
 // arange<start, end, dtype, device>
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::size_t start, ::std::size_t end, DType dtype, Device device>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
 {
     return arange<start, end, 1, dtype, device>();
 }
@@ -16,7 +18,7 @@ template <::std::size_t start, ::std::size_t end, DType dtype, Device device>
 // arange<seq, dtype, device>
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::size_t seq, DType dtype, Device device>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
 {
     return arange<0, seq, 1, dtype, device>();
 }
@@ -25,7 +27,7 @@ template <::std::size_t seq, DType dtype, Device device>
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::size_t start, ::std::size_t end, ::std::size_t step,
           DType dtype, Device device>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::arange()
 {
     static_assert(step != 0, "Tensor::arange() step must be non-zero");
     static_assert(end >= start, "Tensor::arange() requires end >= start");
@@ -47,7 +49,7 @@ template <::std::size_t start, ::std::size_t end, ::std::size_t step,
 
 // empty
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::empty() -> Tensor
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::empty() -> Tensor
 {
     static_assert(!ShapeKind::dynamic_rank,
                   "Tensor::empty() requires a fully static shape");
@@ -57,7 +59,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 
 // zeros
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::zeros() -> Tensor
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::zeros() -> Tensor
 {
     static_assert(!ShapeKind::dynamic_rank,
                   "Tensor::zeros() requires a fully static shape");
@@ -67,7 +69,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 
 // ones
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::ones() -> Tensor
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::ones() -> Tensor
 {
     static_assert(!ShapeKind::dynamic_rank,
                   "Tensor::ones() requires a fully static shape");
@@ -77,7 +79,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 
 // rand
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::rand() -> Tensor
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::rand() -> Tensor
 {
     static_assert(!ShapeKind::dynamic_rank,
                   "Tensor::rand() requires a fully static shape");
@@ -87,7 +89,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 
 // randn
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::randn() -> Tensor
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::randn() -> Tensor
 {
     static_assert(!ShapeKind::dynamic_rank,
                   "Tensor::randn() requires a fully static shape");

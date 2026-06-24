@@ -2,6 +2,7 @@ export module typetorch:tensor_view;
 
 import :tensor_core;
 
+#include "attributes.inc"
 #include "type_macros.inc"
 
 export namespace typetorch
@@ -10,7 +11,7 @@ export namespace typetorch
 // transpose
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t Dim0, ::std::int64_t Dim1>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::transpose() &&
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::transpose() &&
 {
     using Result =
         Tensor<TRANSPOSE_SHAPE_T(ShapeKind, Dim0, Dim1), DTypeKind, DeviceKind,
@@ -21,7 +22,7 @@ template <::std::int64_t Dim0, ::std::int64_t Dim1>
 // permute
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t... Dims>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::permute() &&
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::permute() &&
 {
     constexpr ::std::int64_t dims[]{Dims...};
     using Result = Tensor<PERMUTE_SHAPE_T(ShapeKind, dims), DTypeKind, DeviceKind,
@@ -33,7 +34,7 @@ template <::std::int64_t... Dims>
 // view
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t... Dims>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::view() &&
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::view() &&
 {
     detail::check_contiguous_compiletime(LayoutKind);
     constexpr ::std::int64_t dims[]{Dims...};
@@ -46,7 +47,7 @@ template <::std::int64_t... Dims>
 // reshape (contiguous)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t... Dims>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::reshape() &&
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::reshape() &&
     requires(layout == Layout::Contiguous)
 {
     return view<Dims...>();
@@ -55,7 +56,7 @@ template <::std::int64_t... Dims>
 // reshape (non-contiguous)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t... Dims>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::reshape() &&
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::reshape() &&
     requires(layout != Layout::Contiguous)
 {
     return contiguous().template view<Dims...>();
@@ -64,7 +65,7 @@ template <::std::int64_t... Dims>
 // flatten
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t StartDim, ::std::int64_t EndDim>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::flatten() const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::flatten() const
 {
     using Result = Tensor<FLATTEN_SHAPE_T(ShapeKind, StartDim, EndDim), DTypeKind,
                           DeviceKind,
@@ -75,7 +76,7 @@ template <::std::int64_t StartDim, ::std::int64_t EndDim>
 
 // squeeze (all dims)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::squeeze() const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::squeeze() const
 {
     using Result = Tensor<SQUEEZE_SHAPE_T(ShapeKind), DTypeKind, DeviceKind, LayoutKind>;
     return Result::unsafe_move(unsafe_raw().squeeze());
@@ -84,7 +85,7 @@ template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout Layout
 // squeeze (specific dim)
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t Dim>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::squeeze() const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::squeeze() const
 {
     using Result = Tensor<SQUEEZE_DIM_SHAPE_T(ShapeKind, Dim), DTypeKind, DeviceKind,
                           LayoutKind>;
@@ -94,7 +95,7 @@ template <::std::int64_t Dim>
 // unsqueeze
 template <ShapeLike ShapeKind, DType DTypeKind, Device DeviceKind, Layout LayoutKind>
 template <::std::int64_t Dim>
-[[nodiscard]] inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::unsqueeze() const
+[[nodiscard]] TYPETORCH_HOT inline auto Tensor<ShapeKind, DTypeKind, DeviceKind, LayoutKind>::unsqueeze() const
 {
     using Result = Tensor<UNSQUEEZE_SHAPE_T(ShapeKind, Dim), DTypeKind, DeviceKind,
                           LayoutKind>;

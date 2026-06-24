@@ -70,7 +70,9 @@ end
 
 add_rules("mode.debug", "mode.release")
 add_repositories("local-repo .")
-add_cxxflags("-fmodules", "-freflection", "-Wall"," -Wextra","-fvisibility=hidden", {force = true})
+add_cxxflags("-fmodules", "-freflection", "-Wall"," -Wextra","-fvisibility=hidden", "-ffunction-sections", "-fdata-sections", {force = true})
+    add_ldflags("-Wl,--gc-sections", {force = true})
+    add_shflags("-Wl,--gc-sections", {force = true})
 
 local configured_python_include = config_value("python_include_dir", "PYTHON_INCLUDE_DIR")
 if configured_python_include then

@@ -9,6 +9,8 @@ import :common;
 import :tensor;
 import :nnModules_core;
 
+#include "attributes.inc"
+
 export namespace typetorch
 {
 
@@ -38,7 +40,7 @@ struct TypedEmbeddingImpl : ::torch::nn::EmbeddingImpl
 	}
 
 	template <TensorLike Indices>
-	[[nodiscard]] inline auto forward(Indices const &indices)
+	[[nodiscard]] TYPETORCH_HOT inline auto forward(Indices const &indices)
 	{
 		static_assert(Indices::dtype == DType::Any || Indices::dtype == DType::I64,
 					  "Embedding input indices must be int64 tensors");

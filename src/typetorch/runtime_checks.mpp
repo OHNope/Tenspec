@@ -3,6 +3,7 @@ export module typetorch:runtime_checks;
 import fast_io;
 import std;
 import libtorch;
+#include "attributes.inc"
 export import :types;
 
 export namespace typetorch
@@ -11,7 +12,7 @@ export namespace typetorch
 namespace detail
 {
 
-[[nodiscard]] inline auto dtype_name(DType dtype) noexcept -> char const *
+[[nodiscard]] TYPETORCH_COLD inline auto dtype_name(DType dtype) noexcept -> char const *
 {
 	switch (dtype)
 	{
@@ -32,7 +33,7 @@ namespace detail
 	return "<unknown DType>";
 }
 
-[[nodiscard]] inline auto scalar_type_name(::torch::ScalarType dtype) noexcept
+[[nodiscard]] TYPETORCH_COLD inline auto scalar_type_name(::torch::ScalarType dtype) noexcept
 	-> char const *
 {
 	switch (dtype)
@@ -62,7 +63,7 @@ namespace detail
 	}
 }
 
-[[nodiscard]] inline auto device_name(Device device) noexcept -> char const *
+[[nodiscard]] TYPETORCH_COLD inline auto device_name(Device device) noexcept -> char const *
 {
 	switch (device)
 	{
@@ -77,10 +78,10 @@ namespace detail
 	return "<unknown Device>";
 }
 
-[[nodiscard]] inline auto tensor_device_name(::torch::Tensor const &raw) noexcept
+[[nodiscard]] TYPETORCH_COLD inline auto tensor_device_name(::torch::Tensor const &raw) noexcept
 	-> char const *
 {
-	if (!raw.defined())
+	if (TYPETORCH_UNLIKELY(!raw.defined()))
 	{
 		return "<undefined>";
 	}
@@ -98,7 +99,7 @@ namespace detail
 	return "<other device>";
 }
 
-[[nodiscard]] inline auto layout_name(Layout layout) noexcept -> char const *
+[[nodiscard]] TYPETORCH_COLD inline auto layout_name(Layout layout) noexcept -> char const *
 {
 	switch (layout)
 	{
@@ -113,10 +114,10 @@ namespace detail
 	return "<unknown Layout>";
 }
 
-[[nodiscard]] inline auto tensor_layout_name(::torch::Tensor const &raw) noexcept
+[[nodiscard]] TYPETORCH_COLD inline auto tensor_layout_name(::torch::Tensor const &raw) noexcept
 	-> char const *
 {
-	if (!raw.defined())
+	if (TYPETORCH_UNLIKELY(!raw.defined()))
 	{
 		return "<undefined>";
 	}
@@ -124,7 +125,7 @@ namespace detail
 	return raw.is_contiguous() ? "Contiguous" : "NonContiguous";
 }
 
-inline void print_shape(::std::span<::std::int64_t const> dims) noexcept
+[[gnu::cold]] inline void print_shape(::std::span<::std::int64_t const> dims) noexcept
 {
 	fast_io::print("[");
 
@@ -148,9 +149,9 @@ inline void print_shape(::std::span<::std::int64_t const> dims) noexcept
 	fast_io::print("]");
 }
 
-inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
+[[gnu::cold]] inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 {
-	if (!raw.defined())
+	if (TYPETORCH_UNLIKELY(!raw.defined()))
 	{
 		fast_io::print("<undefined>");
 		return;
@@ -173,7 +174,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	fast_io::print("]");
 }
 
-[[noreturn]] inline void contract_violation(
+[[noreturn]] TYPETORCH_COLD inline void contract_violation(
 	char const *where,
 	char const *message) noexcept
 {
@@ -186,7 +187,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void undefined_tensor(
+[[noreturn]] TYPETORCH_COLD inline void undefined_tensor(
 	char const *where) noexcept
 {
 	fast_io::println(
@@ -197,7 +198,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void rank_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void rank_mismatch(
 	char const *where,
 	::std::size_t expected_rank,
 	::std::int64_t actual_rank) noexcept
@@ -213,7 +214,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void shape_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void shape_mismatch(
 	char const *where,
 	::std::size_t dim,
 	::std::int64_t expected_dim,
@@ -240,7 +241,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void dtype_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void dtype_mismatch(
 	char const *where,
 	DType expected,
 	::torch::ScalarType actual) noexcept
@@ -256,7 +257,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void device_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void device_mismatch(
 	char const *where,
 	Device expected,
 	::torch::Tensor const &raw) noexcept
@@ -272,7 +273,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void layout_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void layout_mismatch(
 	char const *where,
 	Layout expected,
 	::torch::Tensor const &raw) noexcept
@@ -288,7 +289,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void full_tensor_contract_mismatch(
+[[noreturn]] TYPETORCH_COLD inline void full_tensor_contract_mismatch(
 	char const *where,
 	::torch::Tensor const &raw,
 	::std::span<::std::int64_t const> expected_shape,
@@ -329,7 +330,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void factory_layout_violation(
+[[noreturn]] TYPETORCH_COLD inline void factory_layout_violation(
 	char const *where,
 	Layout requested_layout) noexcept
 {
@@ -344,7 +345,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-[[noreturn]] inline void non_contiguous_view_violation(
+[[noreturn]] TYPETORCH_COLD inline void non_contiguous_view_violation(
 	char const *where,
 	Layout current_layout) noexcept
 {
@@ -358,7 +359,7 @@ inline void print_tensor_shape(::torch::Tensor const &raw) noexcept
 	::std::terminate();
 }
 
-inline auto dtype_matches(DType expected, ::torch::ScalarType actual) noexcept
+TYPETORCH_PURE inline auto dtype_matches(DType expected, ::torch::ScalarType actual) noexcept
 	-> bool
 {
 	switch (expected)
@@ -380,7 +381,7 @@ inline auto dtype_matches(DType expected, ::torch::ScalarType actual) noexcept
 	return false;
 }
 
-inline auto device_matches(Device expected, ::torch::Tensor const &raw) noexcept
+TYPETORCH_PURE inline auto device_matches(Device expected, ::torch::Tensor const &raw) noexcept
 	-> bool
 {
 	switch (expected)
@@ -395,7 +396,7 @@ inline auto device_matches(Device expected, ::torch::Tensor const &raw) noexcept
 	return false;
 }
 
-inline auto layout_matches(Layout expected, ::torch::Tensor const &raw) noexcept
+TYPETORCH_PURE inline auto layout_matches(Layout expected, ::torch::Tensor const &raw) noexcept
 	-> bool
 {
 	switch (expected)
@@ -415,7 +416,7 @@ inline void check_shape_compatible_runtime(
 	::std::span<::std::int64_t const> dims,
 	char const *where = "Tensor::retain")
 {
-	if (!raw.defined())
+	if (TYPETORCH_UNLIKELY(!raw.defined()))
 	{
 		undefined_tensor(where);
 	}
@@ -459,24 +460,24 @@ inline void check_tensor_compatible_runtime(
 	Layout layout,
 	char const *where = "Tensor::retain")
 {
-	if (!raw.defined())
+	if (TYPETORCH_UNLIKELY(!raw.defined()))
 	{
 		undefined_tensor(where);
 	}
 
 	check_shape_compatible_runtime(raw, dims, where);
 
-	if (!dtype_matches(dtype, raw.scalar_type()))
+	if (TYPETORCH_UNLIKELY(!dtype_matches(dtype, raw.scalar_type())))
 	{
 		dtype_mismatch(where, dtype, raw.scalar_type());
 	}
 
-	if (!device_matches(device, raw))
+	if (TYPETORCH_UNLIKELY(!device_matches(device, raw)))
 	{
 		device_mismatch(where, device, raw);
 	}
 
-	if (!layout_matches(layout, raw))
+	if (TYPETORCH_UNLIKELY(!layout_matches(layout, raw)))
 	{
 		layout_mismatch(where, layout, raw);
 	}

@@ -9,6 +9,8 @@ import :common;
 import :tensor;
 import :nnModules_core;
 
+#include "attributes.inc"
+
 export namespace typetorch
 {
 
@@ -69,7 +71,7 @@ struct TypedConv2dImpl : ::torch::nn::Conv2dImpl
 	}
 
 	template <TensorLike Input>
-	[[nodiscard]] inline auto forward(Input const &x)
+	[[nodiscard]] TYPETORCH_HOT inline auto forward(Input const &x)
 	{
 		static_assert(Input::dtype == DType::Any ||
 						  ::typetorch::detail::is_floating_dtype(Input::dtype),

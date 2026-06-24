@@ -124,13 +124,13 @@ public:
         return Tensor(::std::move(raw));
     }
 
-    [[nodiscard]] inline auto contiguous() const noexcept
+    [[nodiscard]] TYPETORCH_HOT inline auto contiguous() const noexcept
         requires(layout == Layout::Contiguous)
     {
         return *this;
     }
 
-    [[nodiscard]] inline auto contiguous()
+    [[nodiscard]] TYPETORCH_HOT inline auto contiguous()
         requires(layout != Layout::Contiguous)
     {
         using Result = Tensor<shape, dtype, device, Layout::Contiguous>;
@@ -138,18 +138,18 @@ public:
     }
 
     template <Device ndevice, DType ndtype = dtype>
-    [[nodiscard]] inline auto to() &&
+    [[nodiscard]] TYPETORCH_HOT inline auto to() &&
     {
         return Tensor<shape, ndtype, ndevice, layout>::unsafe_move(unsafe_raw().to(::torch::TensorOptions{}.dtype(detail::to_torch_dtype(ndtype)).device(detail::to_torch_device(ndevice))));
     }
 
     template <DType ndtype>
-    [[nodiscard]] inline auto to() &&
+    [[nodiscard]] TYPETORCH_HOT inline auto to() &&
     {
         return Tensor<shape, ndtype, device, layout>::unsafe_move(unsafe_raw().to(::torch::TensorOptions{}.dtype(detail::to_torch_dtype(ndtype))));
     }
 
-    [[nodiscard]] inline auto clone() const
+    [[nodiscard]] TYPETORCH_HOT inline auto clone() const
     {
         return unsafe_move(this->unsafe_raw().clone());
     }
