@@ -182,6 +182,9 @@ end
 rule("libtorch_runtime")
     on_load(function (target)
         local torch = target:pkg("libtorch")
+        if not torch then
+            return
+        end
         local torchdir = torch:installdir()
         target:add("defines", format("TYPETORCH_LIBTORCH_ROOT=\"%s\"", torch:installdir()))
         target:add("sysincludedirs", path.join(torchdir, "include"))
