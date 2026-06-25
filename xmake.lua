@@ -297,22 +297,6 @@ target("typetorch_forwarding_benchmark")
     })
 target_end()
 
-local function configure_remove_cvref_benchmark(source)
-    set_default(false)
-    set_kind("binary")
-    add_files(source)
-    add_includedirs("tests")
-    add_mode_flags()
-end
-
-target("remove_cvref_trait_benchmark")
-    configure_remove_cvref_benchmark("tests/remove_cvref_trait_benchmark.cpp")
-target_end()
-
-target("remove_cvref_meta_benchmark")
-    configure_remove_cvref_benchmark("tests/remove_cvref_meta_benchmark.cpp")
-target_end()
-
 target("binary_size_tensor_probe")
     configure_libtorch_target({
         default = false,

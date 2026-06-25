@@ -44,10 +44,10 @@ int main() {
         auto actual = seq->forward(Input::unsafe_retain(input));
 
         if (!actual.unsafe_raw().equal(expected)) {
-            throw ::std::runtime_error{
-                "sequential_two_linear: mismatch; actual=" +
-                actual.unsafe_raw().toString() +
-                ", expected=" + expected.toString()};
+            ::fast_io::io::perrln("sequential_two_linear: mismatch; actual=",
+                                   actual.unsafe_raw().toString(),
+                                   ", expected=", expected.toString());
+            ::std::exit(1);
         }
     }
 
@@ -101,7 +101,8 @@ int main() {
         auto actual = seq->forward(Input::unsafe_retain(input));
 
         if (!::torch::allclose(actual.unsafe_raw(), expected)) {
-            throw ::std::runtime_error{"sequential_linear_layernorm: mismatch"};
+            ::fast_io::io::perrln("sequential_linear_layernorm: mismatch");
+            ::std::exit(1);
         }
     }
 

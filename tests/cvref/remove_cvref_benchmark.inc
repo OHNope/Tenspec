@@ -48,6 +48,6 @@ int main(int argc, char **)
     for (auto iteration = 0; iteration != 200000; ++iteration)
         value = runtime_checksum(value, indices);
 
-    ::std::printf("%zu %zu\n", expected_checksum, value);
+    ::fast_io::io::println(expected_checksum, " ", value);
     return value == 0;
 }

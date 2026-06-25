@@ -1,5 +1,5 @@
 #include <cstddef>
-#include <cstdio>
+#include "../../third_party/fast_io/include/fast_io.h"
 #include <meta>
 #include <type_traits>
 #include <utility>

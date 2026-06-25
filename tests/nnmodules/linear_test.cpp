@@ -17,9 +17,9 @@ auto options() -> ::torch::TensorOptions {
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
     if (!actual.equal(expected)) {
-        throw ::std::runtime_error{
-            ::std::string{name} + " mismatch; actual=" + actual.toString() +
-            ", expected=" + expected.toString()};
+        ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
+                               ", expected=", expected.toString());
+        ::std::exit(1);
     }
 }
 
@@ -28,7 +28,7 @@ void expect_allclose(char const* name, ::torch::Tensor const& actual,
 int main() {
     // --- Test 1: forward with bias ---
     {
-        ::torch::nn::Linear raw(::torch::nn::LinearOptions(3, 2).bias(true));
+        auto raw{::torch::nn::Linear{::torch::nn::LinearOptions(3, 2).bias(true)}};
         using Linear32 = typetorch::Linear<3, 2>;
         Linear32 typed;
 
@@ -44,7 +44,7 @@ int main() {
 
     // --- Test 2: forward without bias ---
     {
-        ::torch::nn::Linear raw(::torch::nn::LinearOptions(4, 1).bias(false));
+        auto raw{::torch::nn::Linear{::torch::nn::LinearOptions(4, 1).bias(false)}};
         using LinearNoBias = typetorch::Linear<4, 1>;
         LinearNoBias typed;
 
@@ -59,7 +59,7 @@ int main() {
 
     // --- Test 3: to(dtype) F16 ---
     {
-        ::torch::nn::Linear raw(::torch::nn::LinearOptions(3, 2).bias(true));
+        auto raw{::torch::nn::Linear{::torch::nn::LinearOptions(3, 2).bias(true)}};
         using Linear32 = typetorch::Linear<3, 2>;
         Linear32 typed;
 
@@ -71,10 +71,12 @@ int main() {
         auto raw_f16_bias = raw->bias.to(::torch::kHalf);
 
         if (!f16->weight.equal(raw_f16_weight)) {
-            throw ::std::runtime_error{"linear_to_f16: weight mismatch"};
+            ::fast_io::io::perrln("linear_to_f16: weight mismatch");
+            ::std::exit(1);
         }
         if (!f16->bias.equal(raw_f16_bias)) {
-            throw ::std::runtime_error{"linear_to_f16: bias mismatch"};
+            ::fast_io::io::perrln("linear_to_f16: bias mismatch");
+            ::std::exit(1);
         }
 
         auto input = ::torch::randn({4, 3}, options());
@@ -84,7 +86,8 @@ int main() {
         auto actual_f16 = f16->forward(F16Input::unsafe_retain(f16_input));
         auto raw_f16_result = f16_input.mm(raw_f16_weight.t()).add(raw_f16_bias);
         if (!actual_f16.unsafe_raw().to(::torch::kFloat).equal(raw_f16_result.to(::torch::kFloat))) {
-            throw ::std::runtime_error{"linear_to_f16: forward mismatch"};
+            ::fast_io::io::perrln("linear_to_f16: forward mismatch");
+            ::std::exit(1);
         }
     }
 

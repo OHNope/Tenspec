@@ -84,60 +84,60 @@ void write(long double value)
 	fastio_detail::write_one(static_cast<double>(value));
 }
 
-void err_write(char const *value, size_type size)
+void errwrite(char const *value, size_type size)
 {
 	fastio_detail::err_write_one(::fast_io::mnp::strvw(value, value + size));
 }
 
-void err_write(char value)
+void errwrite(char value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(bool value)
+void errwrite(bool value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(short value)
+void errwrite(short value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(unsigned short value)
+void errwrite(unsigned short value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(int value)
+void errwrite(int value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(unsigned int value)
+void errwrite(unsigned int value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(long value)
+void errwrite(long value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(unsigned long value)
+void errwrite(unsigned long value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(long long value)
+void errwrite(long long value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(unsigned long long value)
+void errwrite(unsigned long long value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(float value)
+void errwrite(float value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(double value)
+void errwrite(double value)
 {
 	fastio_detail::err_write_one(value);
 }
-void err_write(long double value)
+void errwrite(long double value)
 {
 	fastio_detail::err_write_one(static_cast<double>(value));
 }

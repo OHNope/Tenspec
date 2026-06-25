@@ -161,11 +161,8 @@ private:
 };
 
 template <ShapeLike OutputSize>
-struct TypedAdaptiveAvgPool2dImpl
-	: ::torch::nn::AdaptiveAvgPool2dImpl
+struct TypedAdaptiveAvgPool2dImpl : ::torch::nn::Module
 {
-	using ::torch::nn::AdaptiveAvgPool2dImpl::forward;
-
 	static_assert(OutputSize::rank == 2,
 				  "AdaptiveAvgPool2d output_size must have rank 2");
 	static_assert(
@@ -173,9 +170,13 @@ struct TypedAdaptiveAvgPool2dImpl
 			(OutputSize::dims[1] > 0 || OutputSize::dims[1] == dyn),
 		"AdaptiveAvgPool2d output dimensions must be positive or dyn");
 
-	TypedAdaptiveAvgPool2dImpl()
-		: ::torch::nn::AdaptiveAvgPool2dImpl(make_options())
+	[[nodiscard]] TYPETORCH_HOT inline auto forward(
+		::torch::Tensor const &input) -> ::torch::Tensor
 	{
+		::std::array<::std::int64_t, 2> const output_size{
+			OutputSize::dims[0] == dyn ? input.size(-2) : OutputSize::dims[0],
+			OutputSize::dims[1] == dyn ? input.size(-1) : OutputSize::dims[1]};
+		return ::torch::adaptive_avg_pool2d(input, output_size);
 	}
 
 	template <TensorLike Input>
@@ -189,30 +190,13 @@ struct TypedAdaptiveAvgPool2dImpl
 			InputShape::dims, OutputSize::dims):];
 		using Result =
 			Tensor<ResultShape, Input::dtype, Input::device, Layout::Any>;
-		return Result::unsafe_move(
-			::torch::nn::AdaptiveAvgPool2dImpl::forward(
-				input.unsafe_raw()));
+		return Result::unsafe_move(forward(input.unsafe_raw()));
 	}
 
 	template <Device, DType>
 	[[nodiscard]] inline auto to() const
 	{
 		return ::std::make_shared<TypedAdaptiveAvgPool2dImpl>();
-	}
-
-private:
-	[[nodiscard]] static inline auto make_options()
-		-> ::torch::nn::AdaptiveAvgPool2dOptions
-	{
-		using Optional = ::std::optional<::std::int64_t>;
-		::std::array<Optional, 2> const output_size{
-			OutputSize::dims[0] == dyn
-				? Optional{}
-				: Optional{OutputSize::dims[0]},
-			OutputSize::dims[1] == dyn
-				? Optional{}
-				: Optional{OutputSize::dims[1]}};
-		return ::torch::nn::AdaptiveAvgPool2dOptions{output_size};
 	}
 };
 

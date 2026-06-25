@@ -19,39 +19,10 @@ concept TypedModuleHolder =
 	} &&
 	::std::derived_from<typename ModuleKind::Impl, ::torch::nn::Module>;
 
-
 template <typename Input, TypedModuleHolder Module>
 using SequentialStepOutput = [: ::std::meta::remove_cvref(
-	^^decltype(::std::declval<typename Module::Impl &>().forward(
-		::std::declval<Input const &>()))) :];
-
-/*
- * Template-trait fallback retained for comparison with the consteval
- * reflection implementation below.
- *
- * template <typename Input, TypedModuleHolder... Modules>
- * struct SequentialOutput;
- *
- * template <typename Input, TypedModuleHolder Module>
- * struct SequentialOutput<Input, Module>
- * {
- *     using type = SequentialStepOutput<Input, Module>;
- *     static_assert(
- *         TensorLike<type>,
- *         "Sequential modules must return a single typed Tensor");
- * };
- *
- * template <typename Input, TypedModuleHolder First,
- *           TypedModuleHolder Second, TypedModuleHolder... Rest>
- * struct SequentialOutput<Input, First, Second, Rest...>
- * {
- *     using Step = SequentialStepOutput<Input, First>;
- *     static_assert(
- *         TensorLike<Step>,
- *         "Sequential modules must return a single typed Tensor");
- *     using type = typename SequentialOutput<Step, Second, Rest...>::type;
- * };
- */
+									^^decltype(::std::declval<typename Module::Impl &>().forward(
+										::std::declval<Input const &>()))):];
 
 template <::std::meta::info Input, ::std::meta::info Module,
 		  ::std::meta::info... Rest>
@@ -64,7 +35,7 @@ consteval inline auto sequential_output_meta() -> ::std::meta::info
 	static_assert(TensorLike<Output>,
 				  "Sequential modules must return a single typed Tensor");
 
-	if constexpr (sizeof...(Rest) == 0)
+	if constexpr (sizeof...(Rest) == 0) // work same as the specialization of the template fn
 	{
 		return output;
 	}
@@ -99,7 +70,7 @@ struct TypedSequentialImpl : ::torch::nn::Module
 
 		template for (constexpr ::std::size_t I :
 					  ::std::views::iota(::std::size_t{},
-										sizeof...(Modules) - 1)) // output type would change every time, if output -> local auto var
+										 sizeof...(Modules) - 1)) // output type would change every time, if output -> local auto var
 		{
 			output = ::std::get<I>(modules_)->forward(output);
 		}
@@ -127,7 +98,7 @@ struct TypedSequentialImpl : ::torch::nn::Module
 	{
 		using ResultImpl =
 			TypedSequentialImpl<
-				Modules..., typename[: ::std::meta::remove_cvref(^^NewModule) :]>;
+				Modules..., typename[: ::std::meta::remove_cvref(^^NewModule):]>;
 		return ::std::apply(
 			[&module](auto const &...modules) {
 				return ::std::make_shared<ResultImpl>(
@@ -191,7 +162,7 @@ public:
 	{
 		using Result =
 			Sequential<
-				Modules..., typename[: ::std::meta::remove_cvref(^^NewModule) :]>;
+				Modules..., typename[: ::std::meta::remove_cvref(^^NewModule):]>;
 		return Result{this->ptr()->push_back(::std::move(module))};
 	}
 
@@ -210,6 +181,6 @@ public:
 template <class... Modules>
 	requires(sizeof...(Modules) > 0)
 Sequential(Modules...)
-	-> Sequential<typename[: ::std::meta::remove_cvref(^^Modules) :]...>;
+	-> Sequential<typename[: ::std::meta::remove_cvref(^^Modules):]...>;
 
 } // namespace typetorch

@@ -13,9 +13,9 @@ using Indices2D = typetorch::Tensor<typetorch::Shape<2, 3>, typetorch::DType::I6
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
     if (!actual.equal(expected)) {
-        throw ::std::runtime_error{
-            ::std::string{name} + " mismatch; actual=" + actual.toString() +
-            ", expected=" + expected.toString()};
+        ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
+                               ", expected=", expected.toString());
+        ::std::exit(1);
     }
 }
 
@@ -65,7 +65,8 @@ int main() {
 
         auto f16 = typed->template to<typetorch::DType::F16>();
         if (!f16->weight.equal(raw.weight.to(::torch::kHalf))) {
-            throw ::std::runtime_error{"embedding_to_f16: weight mismatch"};
+            ::fast_io::io::perrln("embedding_to_f16: weight mismatch");
+            ::std::exit(1);
         }
 
         auto indices = ::torch::tensor({1L, 3L},
@@ -76,7 +77,8 @@ int main() {
         auto expected_f16 = raw.weight.to(::torch::kHalf).index_select(0, indices);
         if (!actual_f16.unsafe_raw().to(::torch::kFloat).equal(
                 expected_f16.to(::torch::kFloat))) {
-            throw ::std::runtime_error{"embedding_to_f16: forward mismatch"};
+            ::fast_io::io::perrln("embedding_to_f16: forward mismatch");
+            ::std::exit(1);
         }
     }
 

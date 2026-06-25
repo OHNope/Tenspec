@@ -17,9 +17,9 @@ auto options() -> ::torch::TensorOptions {
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
     if (!actual.equal(expected)) {
-        throw ::std::runtime_error{
-            ::std::string{name} + " mismatch; actual=" + actual.toString() +
-            ", expected=" + expected.toString()};
+        ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
+                               ", expected=", expected.toString());
+        ::std::exit(1);
     }
 }
 
@@ -41,7 +41,8 @@ int main() {
         auto actual = typed->forward(Input23::unsafe_retain(input));
 
         if (!::torch::allclose(actual.unsafe_raw(), expected)) {
-            throw ::std::runtime_error{"layernorm_affine: mismatch"};
+            ::fast_io::io::perrln("layernorm_affine: mismatch");
+            ::std::exit(1);
         }
     }
 
@@ -57,7 +58,8 @@ int main() {
         auto actual = typed->forward(Input224::unsafe_retain(input));
 
         if (!::torch::allclose(actual.unsafe_raw(), expected)) {
-            throw ::std::runtime_error{"layernorm_no_affine: mismatch"};
+            ::fast_io::io::perrln("layernorm_no_affine: mismatch");
+            ::std::exit(1);
         }
     }
 
@@ -72,10 +74,12 @@ int main() {
 
         auto f16 = typed->template to<typetorch::DType::F16>();
         if (!f16->weight.equal(raw->weight.to(::torch::kHalf))) {
-            throw ::std::runtime_error{"layernorm_to_f16: weight mismatch"};
+            ::fast_io::io::perrln("layernorm_to_f16: weight mismatch");
+            ::std::exit(1);
         }
         if (!f16->bias.equal(raw->bias.to(::torch::kHalf))) {
-            throw ::std::runtime_error{"layernorm_to_f16: bias mismatch"};
+            ::fast_io::io::perrln("layernorm_to_f16: bias mismatch");
+            ::std::exit(1);
         }
     }
 

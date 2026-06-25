@@ -39,7 +39,8 @@ void expect_equal(char const *name, ::torch::Tensor const &actual,
 {
 	if (!actual.equal(expected))
 	{
-		throw ::std::runtime_error{::std::string{name} + " mismatch"};
+		::fast_io::io::perrln(name, " mismatch");
+        ::std::exit(1);
 	}
 }
 
@@ -103,12 +104,20 @@ int main()
 		raw_avg->forward(input));
 
 	Adaptive adaptive_pool;
-	auto raw_adaptive{::torch::nn::AdaptiveAvgPool2d{
-		::torch::nn::AdaptiveAvgPool2dOptions{{2, 3}}}};
+	auto raw_adaptive{::torch::adaptive_avg_pool2d(
+		input, ::std::array<::std::int64_t, 2>{2, 3})};
 	expect_equal(
 		"AdaptiveAvgPool2d",
 		adaptive_pool->forward(Input::unsafe_retain(input)).unsafe_raw(),
-		raw_adaptive->forward(input));
+		raw_adaptive);
+	AdaptiveKeepHeight adaptive_keep_height;
+	auto raw_adaptive_keep_height{::torch::adaptive_avg_pool2d(
+		input, ::std::array<::std::int64_t, 2>{9, 3})};
+	expect_equal(
+		"AdaptiveAvgPool2d keep height",
+		adaptive_keep_height->forward(Input::unsafe_retain(input)).unsafe_raw(),
+		raw_adaptive_keep_height);
+
 
 	auto sequence{typetorch::Sequential{
 		typetorch::MaxPool2d<typetorch::Shape<2, 2>>{},

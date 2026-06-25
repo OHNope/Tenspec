@@ -2,7 +2,10 @@ module;
 
 #include <torch/torch.h>
 
+
 export module libtorch;
+
+
 
 export namespace torch
 {
@@ -30,6 +33,7 @@ using ::torch::kLong;
 using ::torch::kZeros;
 using ::torch::arange;
 using ::torch::allclose;
+using ::torch::adaptive_avg_pool2d;
 using ::torch::empty;
 using ::torch::gelu;
 using ::torch::gelu_;
@@ -72,9 +76,6 @@ using ::torch::nn::MaxPool2dOptions;
 using ::torch::nn::AvgPool2dOptions;
 using ::torch::nn::AvgPool2d;
 using ::torch::nn::AvgPool2dImpl;
-using ::torch::nn::AdaptiveAvgPool2d;
-using ::torch::nn::AdaptiveAvgPool2dOptions;
-using ::torch::nn::AdaptiveAvgPool2dImpl;
 } // namespace nn
 } // namespace torch
 

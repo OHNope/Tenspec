@@ -53,7 +53,8 @@ int main()
 	auto expected{::torch::relu(raw).flatten(1, -1)};
 	if (!actual.unsafe_raw().equal(expected))
 	{
-		throw ::std::runtime_error{"ReLU/Flatten Sequential mismatch"};
+		::fast_io::io::perrln("ReLU/Flatten Sequential mismatch");
+            ::std::exit(1);
 	}
 
 	auto converted{

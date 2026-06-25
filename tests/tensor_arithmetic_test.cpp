@@ -116,9 +116,9 @@ void expect_allclose(char const *name, ::torch::Tensor const &actual,
 {
 	if (!actual.equal(expected))
 	{
-		throw ::std::runtime_error{
-			::std::string{name} + " mismatch; actual=" + actual.toString() +
-			", expected=" + expected.toString()};
+		::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
+                               ", expected=", expected.toString());
+        ::std::exit(1);
 	}
 }
 

@@ -64,14 +64,16 @@ int main()
 	auto actual{typed->forward(Input::unsafe_retain(input))};
 	if (!actual.unsafe_raw().equal(expected))
 	{
-		throw ::std::runtime_error{"TypedMLP forward mismatch"};
+		::fast_io::io::perrln("TypedMLP forward mismatch");
+            ::std::exit(1);
 	}
 
 	typetorch::TypedMLP<typetorch::Shape<3, 4, 2>> no_bias{false};
 	if (no_bias.template get<0>()->bias.defined() ||
 		no_bias.template get<1>()->bias.defined())
 	{
-		throw ::std::runtime_error{"TypedMLP no-bias construction failed"};
+		::fast_io::io::perrln("TypedMLP no-bias construction failed");
+            ::std::exit(1);
 	}
 
 	::fast_io::io::println("typetorch TypedMLP tests passed");

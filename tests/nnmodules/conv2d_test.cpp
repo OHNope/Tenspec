@@ -15,9 +15,9 @@ auto options() -> ::torch::TensorOptions {
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
     if (!actual.equal(expected)) {
-        throw ::std::runtime_error{
-            ::std::string{name} + " mismatch; actual=" + actual.toString() +
-            ", expected=" + expected.toString()};
+        ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
+                               ", expected=", expected.toString());
+        ::std::exit(1);
     }
 }
 
@@ -70,7 +70,8 @@ int main() {
 
         auto f16 = typed->template to<typetorch::DType::F16>();
         if (!f16->weight.equal(raw->weight.to(::torch::kHalf))) {
-            throw ::std::runtime_error{"conv2d_to_f16: weight mismatch"};
+            ::fast_io::io::perrln("conv2d_to_f16: weight mismatch");
+            ::std::exit(1);
         }
     }
 
