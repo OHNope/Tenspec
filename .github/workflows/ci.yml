@@ -149,13 +149,27 @@ jobs:
           key: ${{ steps.xmake-package-cache.outputs.cache-primary-key }}
 
   cpp-tests:
-    name: Build and run C++ tests
+    name: Build and run C++ tests (${{ matrix.suite }})
     needs: [changes, package-cache]
     if: needs.changes.outputs.run == 'true' && needs.package-cache.result == 'success'
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: core
+            targets: typetorch_cpp_debug typetorch_tensor_arithmetic_test
+          - suite: nnmodules-basic
+            targets: typetorch_nnmodules_linear_test typetorch_nnmodules_conv2d_test typetorch_nnmodules_embedding_test typetorch_nnmodules_pooling_test
+          - suite: nnmodules-normalization
+            targets: typetorch_nnmodules_layer_norm_test typetorch_nnmodules_rms_norm_test
+          - suite: nnmodules-composition
+            targets: typetorch_nnmodules_sequential_test typetorch_nnmodules_mlp_test typetorch_nnmodules_wrappers_test
+    env:
+      TEST_TARGETS: ${{ matrix.targets }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -215,14 +229,117 @@ jobs:
       - name: Build C++ test targets
         run: |
           source scripts/env.sh
-          xmake build -j "$BUILD_JOBS" typetorch_cpp_debug
-          xmake build -j "$BUILD_JOBS" typetorch_tensor_arithmetic_test
+          for target in $TEST_TARGETS; do
+            xmake build -j "$BUILD_JOBS" "$target"
+          done
 
       - name: Run C++ tests
         run: |
           source scripts/env.sh
-          xmake run typetorch_cpp_debug
-          xmake run typetorch_tensor_arithmetic_test
+          for target in $TEST_TARGETS; do
+            xmake run "$target"
+          done
+
+  coverage:
+    name: Generate and upload coverage
+    needs: [changes, package-cache]
+    if: needs.changes.outputs.run == 'true' && needs.package-cache.result == 'success'
+    runs-on: ubuntu-24.04
+    container:
+      image: gcc:16
+    timeout-minutes: 180
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install system packages
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl unzip git file binutils gnupg jq \
+            python3 python3-dev python3-venv pkg-config gcovr
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Restore xmake installation
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.local/bin/xmake
+            ~/.local/bin/xrepo
+            ~/.local/share/xmake
+          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-gcc16-xmake-install-
+
+      - name: Restore xmake packages
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.xmake/packages
+          key: ${{ runner.os }}-gcc16-xmake-packages-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua') }}
+
+      - name: Install xmake
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          if ! command -v xmake >/dev/null 2>&1; then
+            bash scripts/bootstrap_xmake.sh
+          fi
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          xmake --version
+
+      - name: Configure Python include path
+        run: |
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
+          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
+
+      - name: Configure coverage build
+        run: |
+          source scripts/env.sh
+          xmake f -m coverage --yes --python="$PYTHON"
+
+      - name: Build and run coverage tests
+        run: |
+          source scripts/env.sh
+          test_targets=(
+            typetorch_tensor_arithmetic_test
+            typetorch_nnmodules_linear_test
+            typetorch_nnmodules_conv2d_test
+            typetorch_nnmodules_embedding_test
+            typetorch_nnmodules_layer_norm_test
+            typetorch_nnmodules_rms_norm_test
+            typetorch_nnmodules_sequential_test
+            typetorch_nnmodules_mlp_test
+            typetorch_nnmodules_wrappers_test
+            typetorch_nnmodules_pooling_test
+          )
+          for target in "${test_targets[@]}"; do
+            xmake build -j "$BUILD_JOBS" "$target"
+            xmake run "$target"
+          done
+
+      - name: Generate coverage report
+        run: |
+          gcovr \
+            --root . \
+            --filter 'src/typetorch/' \
+            --exclude 'tests/' \
+            --exclude 'examples/' \
+            --exclude 'benchmarks/' \
+            --xml-pretty \
+            --output coverage.xml \
+            build
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: cpp
+          name: typetorch-cpp
+          disable_search: true
+          fail_ci_if_error: true
 
   capi-extension:
     name: Build Python C API extension
@@ -289,13 +406,32 @@ jobs:
           xmake build -j "$BUILD_JOBS" typetorch_capi_ext
 
   size-probes:
-    name: Build and inspect size probes
+    name: Size probe (${{ matrix.probe }})
     needs: [changes, package-cache]
     if: needs.changes.outputs.run == 'true' && needs.package-cache.result == 'success'
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - probe: tensor
+            target: binary_size_tensor_probe
+            symbol_filter: typetorch
+          - probe: tensor-checked
+            target: binary_size_tensor_checked_probe
+            symbol_filter: typetorch
+          - probe: tensor-unsafe
+            target: binary_size_tensor_unsafe_probe
+            symbol_filter: typetorch
+          - probe: libtorch-native
+            target: binary_size_libtorch_probe
+            symbol_filter: typetorch_binary_size_libtorch_probe
+    env:
+      PROBE_TARGET: ${{ matrix.target }}
+      PROBE_SYMBOL_FILTER: ${{ matrix.symbol_filter }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -347,10 +483,29 @@ jobs:
           source scripts/env.sh
           xmake f -m debug --yes --python="$PYTHON"
 
-      - name: Run size probes
+      - name: Build size probe
         run: |
           source scripts/env.sh
-          bash scripts/nm_size_probe.sh debug
+          xmake build -j "$BUILD_JOBS" "$PROBE_TARGET"
+
+      - name: Inspect size probe
+        run: |
+          source scripts/env.sh
+          probe_path="build/linux/x86_64/debug/$PROBE_TARGET"
+          if [ ! -x "$probe_path" ]; then
+            echo "failed to locate size probe binary: $probe_path" >&2
+            exit 1
+          fi
+          echo "-- binary --"
+          ls -lh "$probe_path"
+          echo
+          echo "-- size --"
+          size "$probe_path" || true
+          echo
+          echo "-- symbols --"
+          nm -S --size-sort --demangle "$probe_path" 2>/dev/null |
+            sed -n "/$PROBE_SYMBOL_FILTER/p" |
+            tail -n "${MAX_LINES:-80}"
 
   package-consumer:
     name: Test add_requires() package consumption

@@ -68,7 +68,7 @@ if gcc_relocate_ldflags and gcc_relocate_ldflags ~= "" then
     end
 end
 
-add_rules("mode.debug", "mode.release")
+add_rules("mode.debug", "mode.release", "mode.coverage")
 add_repositories("local-repo .")
 add_cxxflags("-fmodules", "-freflection", "-Wall"," -Wextra","-fvisibility=hidden", "-ffunction-sections", "-fdata-sections", {force = true})
     add_ldflags("-Wl,--gc-sections", {force = true})
@@ -235,6 +235,12 @@ local function add_mode_flags()
             add_cxxflags("-fsanitize=address,undefined")
             add_ldflags("-fsanitize=address,undefined")
         end
+    elseif is_mode("coverage") then
+        add_each(add_cxxflags, debug_cxxflags)
+        add_cxxflags("--coverage", {force = true})
+        add_ldflags("--coverage", {force = true})
+        add_shflags("--coverage", {force = true})
+        add_defines("TYPETORCH_COVERAGE")
     elseif is_mode("release") then
         add_each(add_cxxflags, release_cxxflags)
         add_defines("TYPETORCH_RELEASE")
