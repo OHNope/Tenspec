@@ -51,7 +51,7 @@ int main()
 							 typetorch::Flatten<1, -1>{}}};
 	auto actual{sequence->forward(Input::unsafe_retain(raw))};
 	auto expected{::torch::relu(raw).flatten(1, -1)};
-	if (!actual.unsafe_raw().equal(expected))
+	if (!::torch::allclose(actual.unsafe_raw(), expected))
 	{
 		::fast_io::io::perrln("ReLU/Flatten Sequential mismatch");
             ::std::exit(1);

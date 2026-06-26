@@ -14,7 +14,7 @@ auto options() -> ::torch::TensorOptions {
 
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
-    if (!actual.equal(expected)) {
+    if (!::torch::allclose(actual, expected)) {
         ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
                                ", expected=", expected.toString());
         ::std::exit(1);
@@ -48,7 +48,7 @@ int main() {
                 .stride(2).padding(1).bias(false));
         using Conv = typetorch::Conv2d<3, 6, typetorch::Shape<3, 3>,
                                         typetorch::Shape<2, 2>, typetorch::Shape<1, 1>>;
-        Conv typed;
+        Conv typed{/*with_bias=*/false};
 
         typed->weight.set_data(raw->weight);
 

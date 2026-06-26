@@ -64,14 +64,14 @@ struct TypedRMSNormImpl
 			Tensor<InputShape, common_dtype(Input::dtype, dtype),
 				   common_device(Input::device, device), Layout::Any>;
 		return Result::unsafe_move(::torch::rms_norm(
-			x.unsafe_raw(), NormalizedShape::dims, weight, eps_));
+			x.unsafe_raw(), NormalizedShape::dims, rms_weight(), eps_));
 	}
 
 	[[nodiscard]] TYPETORCH_HOT inline auto
 	forward(::torch::Tensor const &x) -> ::torch::Tensor
 	{
 		return ::torch::rms_norm(
-			x, NormalizedShape::dims, weight, eps_);
+			x, NormalizedShape::dims, rms_weight(), eps_);
 	}
 
 	template <Device ndevice, DType ndtype = dtype>
@@ -107,6 +107,15 @@ struct TypedRMSNormImpl
 	[[nodiscard]] static inline auto parameter_options()
 	{
 		return container_options<dtype, device>();
+	}
+
+	[[nodiscard]] inline auto rms_weight() const -> ::std::optional<::torch::Tensor>
+	{
+		if (elementwise_affine_ && weight.defined())
+		{
+			return weight;
+		}
+		return ::std::nullopt;
 	}
 
 	::torch::Tensor weight;

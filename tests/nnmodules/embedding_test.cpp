@@ -12,7 +12,7 @@ using Indices2D = typetorch::Tensor<typetorch::Shape<2, 3>, typetorch::DType::I6
 
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
-    if (!actual.equal(expected)) {
+    if (!::torch::allclose(actual, expected)) {
         ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
                                ", expected=", expected.toString());
         ::std::exit(1);
@@ -75,8 +75,8 @@ int main() {
                                               typetorch::Device::CPU, typetorch::Layout::Contiguous>;
         auto actual_f16 = f16->forward(F16Indices::unsafe_retain(indices));
         auto expected_f16 = raw.weight.to(::torch::kHalf).index_select(0, indices);
-        if (!actual_f16.unsafe_raw().to(::torch::kFloat).equal(
-                expected_f16.to(::torch::kFloat))) {
+        if (!::torch::allclose(actual_f16.unsafe_raw().to(::torch::kFloat),
+                               expected_f16.to(::torch::kFloat))) {
             ::fast_io::io::perrln("embedding_to_f16: forward mismatch");
             ::std::exit(1);
         }

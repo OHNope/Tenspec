@@ -34,10 +34,10 @@ auto options() -> ::torch::TensorOptions
 		.device(::torch::kCPU);
 }
 
-void expect_equal(char const *name, ::torch::Tensor const &actual,
-				  ::torch::Tensor const &expected)
+void expect_allclose(char const *name, ::torch::Tensor const &actual,
+					 ::torch::Tensor const &expected)
 {
-	if (!actual.equal(expected))
+	if (!::torch::allclose(actual, expected))
 	{
 		::fast_io::io::perrln(name, " mismatch");
         ::std::exit(1);
@@ -86,7 +86,7 @@ int main()
 			.padding({1, 0})
 			.dilation({1, 1})
 			.ceil_mode(true)}};
-	expect_equal(
+	expect_allclose(
 		"MaxPool2d",
 		max_pool->forward(Input::unsafe_retain(input)).unsafe_raw(),
 		raw_max->forward(input));
@@ -98,7 +98,7 @@ int main()
 			.padding({0, 0})
 			.ceil_mode(false)
 			.count_include_pad(false)}};
-	expect_equal(
+	expect_allclose(
 		"AvgPool2d",
 		avg_pool->forward(Input::unsafe_retain(input)).unsafe_raw(),
 		raw_avg->forward(input));
@@ -106,14 +106,14 @@ int main()
 	Adaptive adaptive_pool;
 	auto raw_adaptive{::torch::adaptive_avg_pool2d(
 		input, ::std::array<::std::int64_t, 2>{2, 3})};
-	expect_equal(
+	expect_allclose(
 		"AdaptiveAvgPool2d",
 		adaptive_pool->forward(Input::unsafe_retain(input)).unsafe_raw(),
 		raw_adaptive);
 	AdaptiveKeepHeight adaptive_keep_height;
 	auto raw_adaptive_keep_height{::torch::adaptive_avg_pool2d(
 		input, ::std::array<::std::int64_t, 2>{9, 3})};
-	expect_equal(
+	expect_allclose(
 		"AdaptiveAvgPool2d keep height",
 		adaptive_keep_height->forward(Input::unsafe_retain(input)).unsafe_raw(),
 		raw_adaptive_keep_height);

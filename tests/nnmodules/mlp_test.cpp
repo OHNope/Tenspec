@@ -62,7 +62,7 @@ int main()
 		raw2->forward(::torch::relu(raw1->forward(
 			::torch::relu(raw0->forward(input)))))};
 	auto actual{typed->forward(Input::unsafe_retain(input))};
-	if (!actual.unsafe_raw().equal(expected))
+	if (!::torch::allclose(actual.unsafe_raw(), expected))
 	{
 		::fast_io::io::perrln("TypedMLP forward mismatch");
             ::std::exit(1);

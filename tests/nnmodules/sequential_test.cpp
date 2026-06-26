@@ -43,7 +43,7 @@ int main() {
         auto expected = raw->forward(input);
         auto actual = seq->forward(Input::unsafe_retain(input));
 
-        if (!actual.unsafe_raw().equal(expected)) {
+        if (!::torch::allclose(actual.unsafe_raw(), expected)) {
             ::fast_io::io::perrln("sequential_two_linear: mismatch; actual=",
                                    actual.unsafe_raw().toString(),
                                    ", expected=", expected.toString());

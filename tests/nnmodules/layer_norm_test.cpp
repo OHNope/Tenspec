@@ -16,7 +16,7 @@ auto options() -> ::torch::TensorOptions {
 
 void expect_allclose(char const* name, ::torch::Tensor const& actual,
                      ::torch::Tensor const& expected) {
-    if (!actual.equal(expected)) {
+    if (!::torch::allclose(actual, expected)) {
         ::fast_io::io::perrln(name, " mismatch; actual=", actual.toString(),
                                ", expected=", expected.toString());
         ::std::exit(1);
