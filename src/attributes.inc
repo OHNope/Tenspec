@@ -80,10 +80,10 @@
 
 // 9. likely/unlikely: branch prediction hints
 #if defined(__GNUC__) || defined(__clang__)
-#define TYPETORCH_LIKELY(x)   __builtin_expect(!!(x), 1)
+#define TYPETORCH_LIKELY(x) __builtin_expect(!!(x), 1)
 #define TYPETORCH_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #else
-#define TYPETORCH_LIKELY(x)   (x)
+#define TYPETORCH_LIKELY(x) (x)
 #define TYPETORCH_UNLIKELY(x) (x)
 #endif
 

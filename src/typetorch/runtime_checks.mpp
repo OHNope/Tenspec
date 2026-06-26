@@ -4,6 +4,7 @@ import fast_io;
 import std;
 import libtorch;
 #include "attributes.inc"
+#include "builtin.inc"
 export import :types;
 
 export namespace typetorch
@@ -30,7 +31,7 @@ namespace detail
 		return "Bool";
 	}
 
-	return "<unknown DType>";
+	TYPETORCH_UNREACHABLE;
 }
 
 [[nodiscard]] TYPETORCH_COLD inline auto scalar_type_name(::torch::ScalarType dtype) noexcept
@@ -63,7 +64,7 @@ namespace detail
 	}
 }
 
-[[nodiscard]] TYPETORCH_COLD inline auto device_name(Device device) noexcept -> char const *
+[[nodiscard]] TYPETORCH_COLD constexpr inline auto device_name(Device device) noexcept -> char const *
 {
 	switch (device)
 	{
@@ -74,6 +75,7 @@ namespace detail
 	case Device::CUDA:
 		return "CUDA";
 	}
+
 
 	return "<unknown Device>";
 }

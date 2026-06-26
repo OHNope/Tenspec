@@ -5,6 +5,8 @@ import python;
 import typetorch.capi_bridge;
 import typetorch.capi_python_cast;
 
+#include "../meta_macros.inc"
+
 export namespace typetorch_capi::reflect
 {
 
@@ -20,7 +22,7 @@ inline auto parse_tuple_impl(
 	else
 	{
 		using Arg = ::std::tuple_element_t<Index, ::std::tuple<Args...>>;
-		auto value{parse_arg<typename[: ::std::meta::remove_cvref(^^Arg) :]>(
+		auto value{parse_arg<REMOVE_CVREF(Arg)>(
 			python::tuple_get_item(args, static_cast<python::Py_ssize_t>(Index)),
 			Index)};
 		if (!value)

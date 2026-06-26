@@ -9,13 +9,13 @@ namespace
 using MLP = typetorch::TypedMLP<typetorch::Shape<3, 5, 4, 2>>;
 using Input =
 	typetorch::Tensor<typetorch::Shape<7, 3>, typetorch::DType::F32,
-					 typetorch::Device::CPU,
-					 typetorch::Layout::Contiguous>;
+					  typetorch::Device::CPU,
+					  typetorch::Layout::Contiguous>;
 using Output =
 	typetorch::Tensor<typetorch::Shape<7, 2>, typetorch::DType::F32,
-					 typetorch::Device::CPU, typetorch::Layout::Any>;
+					  typetorch::Device::CPU, typetorch::Layout::Any>;
 
-auto options() -> ::torch::TensorOptions
+inline auto options() -> ::torch::TensorOptions
 {
 	return ::torch::TensorOptions{}
 		.dtype(::torch::kFloat)
@@ -43,8 +43,8 @@ int main()
 				  decltype(::std::declval<MLP const &>()
 							   .template to<typetorch::DType::F16>()),
 				  typetorch::TypedMLP<typetorch::Shape<3, 5, 4, 2>,
-									 typetorch::DType::F16,
-									 typetorch::Device::CPU>>);
+									  typetorch::DType::F16,
+									  typetorch::Device::CPU>>);
 
 	MLP typed;
 	::torch::nn::Linear raw0{::torch::nn::LinearOptions{3, 5}};
@@ -65,7 +65,7 @@ int main()
 	if (!::torch::allclose(actual.unsafe_raw(), expected))
 	{
 		::fast_io::io::perrln("TypedMLP forward mismatch");
-            ::std::exit(1);
+		::std::exit(1);
 	}
 
 	typetorch::TypedMLP<typetorch::Shape<3, 4, 2>> no_bias{false};
@@ -73,7 +73,7 @@ int main()
 		no_bias.template get<1>()->bias.defined())
 	{
 		::fast_io::io::perrln("TypedMLP no-bias construction failed");
-            ::std::exit(1);
+		::std::exit(1);
 	}
 
 	::fast_io::io::println("typetorch TypedMLP tests passed");

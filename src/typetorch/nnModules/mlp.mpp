@@ -36,16 +36,6 @@ struct TypedMLPImpl : ::torch::nn::Module
 				  "TypedMLP parameters require a concrete device");
 	static_assert(::typetorch::detail::is_floating_dtype(dtype),
 				  "TypedMLP parameters require a floating dtype");
-	static_assert([] consteval {
-		for (::std::int64_t const width : Widths::dims)
-		{
-			if (width <= 0)
-			{
-				return false;
-			}
-		}
-		return true;
-	}(), "TypedMLP feature widths must be positive");
 
 	static constexpr ::std::size_t layer_count{Widths::rank - 1};
 	using Layers = MLPLayers<Widths, dtype, device>;
@@ -77,8 +67,8 @@ struct TypedMLPImpl : ::torch::nn::Module
 	{
 		using InputShape = typename Input::shape;
 		using ResultShape = typename[:linear_shape_meta(
-			InputShape::dims, Widths::dims[0],
-			Widths::dims[Widths::rank - 1]):];
+										  InputShape::dims, Widths::dims[0],
+										  Widths::dims[Widths::rank - 1]):];
 		using Result =
 			Tensor<ResultShape, common_dtype(Input::dtype, dtype),
 				   common_device(Input::device, device), Layout::Any>;
@@ -112,12 +102,16 @@ struct TypedMLPImpl : ::torch::nn::Module
 	{
 		using ResultImpl = TypedMLPImpl<Widths, ndtype, ndevice>;
 		using ResultLayers = typename ResultImpl::Layers;
-		auto layers{::std::apply(
-			[](auto const &...layer) {
-				return ResultLayers{
-					layer.template to<ndevice, ndtype>()...};
-			},
-			layers_)};
+
+		ResultLayers layers{};
+
+		template for (constexpr ::std::size_t I :
+					  ::std::views::iota(::std::size_t{}, layer_count))
+		{
+			::std::get<I>(layers) =
+				::std::get<I>(layers_).template to<ndevice, ndtype>();
+		}
+
 		return ::std::make_shared<ResultImpl>(::std::move(layers));
 	}
 

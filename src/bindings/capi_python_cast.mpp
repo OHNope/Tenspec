@@ -4,11 +4,13 @@ import std;
 import python;
 import torch_python;
 
+#include "../meta_macros.inc"
+
 export namespace typetorch_capi::reflect
 {
 
 template <typename Arg>
-using parsed_arg_t = [: ::std::meta::remove_cvref(^^Arg) :];
+using parsed_arg_t = REMOVE_CVREF(Arg);
 template <typename T>
 concept retained_tensor_like =
 	requires(torch_python::Tensor tensor) {
@@ -143,7 +145,7 @@ inline auto parse_arg(python::PyObject *object, ::std::size_t index)
 template <typename Result>
 inline auto to_python(Result &&result) -> python::PyObject *
 {
-	using Bare = [: ::std::meta::remove_cvref(^^Result) :];
+	using Bare = REMOVE_CVREF(Result);
 	if constexpr (unwrap_tensor_like<Bare>)
 	{
 		return torch_python::tensor_wrap(::std::move(result).unwrap());

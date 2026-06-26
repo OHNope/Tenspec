@@ -2,6 +2,7 @@ set_project("typetorch")
 set_version("0.1.0")
 set_languages("c++26")
 set_policy("build.c++.modules.gcc.cxx11abi", true)
+set_policy("build.c++.modules.reuse", false)
 
 local local_config = {}
 
