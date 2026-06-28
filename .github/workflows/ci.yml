@@ -29,7 +29,6 @@ jobs:
     outputs:
       run: ${{ steps.changes.outputs.run }}
       need_packages: ${{ steps.changes.outputs.need_packages }}
-      sdk_debug: ${{ steps.changes.outputs.sdk_debug }}
       cpp_tests: ${{ steps.changes.outputs.cpp_tests }}
       coverage: ${{ steps.changes.outputs.coverage }}
       capi: ${{ steps.changes.outputs.capi }}
@@ -53,7 +52,6 @@ jobs:
             {
               echo "run=true"
               echo "need_packages=true"
-              echo "sdk_debug=true"
               echo "cpp_tests=true"
               echo "coverage=true"
               echo "capi=true"
@@ -80,7 +78,6 @@ jobs:
 
           run=false
           need_packages=false
-          sdk_debug=false
           cpp_tests=false
           coverage=false
           capi=false
@@ -90,7 +87,6 @@ jobs:
           mark_all_builds() {
             run=true
             need_packages=true
-            sdk_debug=true
             cpp_tests=true
             coverage=true
             capi=true
@@ -121,7 +117,6 @@ jobs:
               examples/*|examples/**)
                 run=true
                 need_packages=true
-                sdk_debug=true
                 cpp_tests=true
                 coverage=true
                 ;;
@@ -133,13 +128,11 @@ jobs:
               tests/binary_size_*)
                 run=true
                 need_packages=true
-                sdk_debug=true
                 size_probes=true
                 ;;
               tests/*|tests/**)
                 run=true
                 need_packages=true
-                sdk_debug=true
                 cpp_tests=true
                 coverage=true
                 ;;
@@ -152,7 +145,6 @@ jobs:
           {
             echo "run=$run"
             echo "need_packages=$need_packages"
-            echo "sdk_debug=$sdk_debug"
             echo "cpp_tests=$cpp_tests"
             echo "coverage=$coverage"
             echo "capi=$capi"
@@ -235,88 +227,10 @@ jobs:
           path: ~/.xmake/packages
           key: ${{ steps.xmake-package-cache.outputs.cache-primary-key }}
 
-  sdk-debug:
-    name: Build Typetorch SDK (debug)
-    needs: [changes, package-cache]
-    if: needs.changes.outputs.sdk_debug == 'true' && needs.package-cache.result == 'success'
-    runs-on: ubuntu-24.04
-    container:
-      image: gcc:16
-    timeout-minutes: 120
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Install system packages
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            ca-certificates curl unzip git file binutils \
-            python3 python3-dev python3-venv pkg-config
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Restore xmake installation
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.local/bin/xmake
-            ~/.local/bin/xrepo
-            ~/.local/share/xmake
-          key: ${{ runner.os }}-gcc16-xmake-install-${{ hashFiles('scripts/bootstrap_xmake.sh') }}
-          restore-keys: |
-            ${{ runner.os }}-gcc16-xmake-install-
-
-      - name: Restore xmake packages
-        uses: actions/cache/restore@v5
-        with:
-          path: ~/.xmake/packages
-          key: ${{ runner.os }}-gcc16-xmake-packages-cpu-${{ hashFiles('xmake.lua', 'xmake_package.lua', 'packages/**/xmake.lua') }}
-
-      - name: Install xmake
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          if ! command -v xmake >/dev/null 2>&1; then
-            bash scripts/bootstrap_xmake.sh
-          fi
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          xmake --version
-
-      - name: Configure Python include path
-        run: |
-          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
-          python_include="$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("include"))')"
-          echo "PYTHON_INCLUDE_DIR=$python_include" >> "$GITHUB_ENV"
-
-      - name: Configure debug build
-        run: |
-          source scripts/env.sh
-          xmake f -m debug --yes --python="$PYTHON"
-
-      - name: Build SDK
-        run: |
-          source scripts/env.sh
-          xmake build -j "$BUILD_JOBS" typetorch_sdk
-
-      - name: Upload SDK build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: typetorch-sdk-debug
-          path: |
-            .xmake/linux/x86_64
-            build/.deps/typetorch_sdk
-            build/.gens/typetorch_sdk
-            build/.objs/typetorch_sdk
-            build/linux/x86_64/debug/libtypetorch_sdk.a
-          include-hidden-files: true
-          compression-level: 1
-          retention-days: 1
-
   cpp-tests:
     name: Build and run C++ tests (${{ matrix.suite }})
-    needs: [changes, package-cache, sdk-debug]
-    if: needs.changes.outputs.cpp_tests == 'true' && needs.package-cache.result == 'success' && needs.sdk-debug.result == 'success'
+    needs: [changes, package-cache]
+    if: needs.changes.outputs.cpp_tests == 'true' && needs.package-cache.result == 'success'
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
@@ -392,12 +306,6 @@ jobs:
           source scripts/env.sh
           xmake f -m debug --yes --python="$PYTHON"
 
-      - name: Download SDK build artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: typetorch-sdk-debug
-          path: .
-
       - name: Check environment
         run: |
           source scripts/env.sh
@@ -406,6 +314,7 @@ jobs:
       - name: Build C++ test targets
         run: |
           source scripts/env.sh
+          xmake build -j "$BUILD_JOBS" typetorch_sdk
           for target in $TEST_TARGETS; do
             xmake build -j "$BUILD_JOBS" "$target"
           done
@@ -587,32 +496,13 @@ jobs:
           xmake build -j "$BUILD_JOBS" typetorch_capi_ext
 
   size-probes:
-    name: Size probe (${{ matrix.probe }})
-    needs: [changes, package-cache, sdk-debug]
-    if: needs.changes.outputs.size_probes == 'true' && needs.package-cache.result == 'success' && needs.sdk-debug.result == 'success'
+    name: Size probes
+    needs: [changes, package-cache]
+    if: needs.changes.outputs.size_probes == 'true' && needs.package-cache.result == 'success'
     runs-on: ubuntu-24.04
     container:
       image: gcc:16
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - probe: tensor
-            target: binary_size_tensor_probe
-            symbol_filter: typetorch
-          - probe: tensor-checked
-            target: binary_size_tensor_checked_probe
-            symbol_filter: typetorch
-          - probe: tensor-unsafe
-            target: binary_size_tensor_unsafe_probe
-            symbol_filter: typetorch
-          - probe: libtorch-native
-            target: binary_size_libtorch_probe
-            symbol_filter: typetorch_binary_size_libtorch_probe
-    env:
-      PROBE_TARGET: ${{ matrix.target }}
-      PROBE_SYMBOL_FILTER: ${{ matrix.symbol_filter }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -664,35 +554,48 @@ jobs:
           source scripts/env.sh
           xmake f -m debug --yes --python="$PYTHON"
 
-      - name: Download SDK build artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: typetorch-sdk-debug
-          path: .
-
-      - name: Build size probe
+      - name: Build size probes
         run: |
           source scripts/env.sh
-          xmake build -j "$BUILD_JOBS" "$PROBE_TARGET"
+          xmake build -j "$BUILD_JOBS" typetorch_sdk
+          for target in \
+            binary_size_tensor_probe \
+            binary_size_tensor_checked_probe \
+            binary_size_tensor_unsafe_probe \
+            binary_size_libtorch_probe
+          do
+            xmake build -j "$BUILD_JOBS" "$target"
+          done
 
-      - name: Inspect size probe
+      - name: Inspect size probes
         run: |
           source scripts/env.sh
-          probe_path="build/linux/x86_64/debug/$PROBE_TARGET"
-          if [ ! -x "$probe_path" ]; then
-            echo "failed to locate size probe binary: $probe_path" >&2
-            exit 1
-          fi
-          echo "-- binary --"
-          ls -lh "$probe_path"
-          echo
-          echo "-- size --"
-          size "$probe_path" || true
-          echo
-          echo "-- symbols --"
-          nm -S --size-sort --demangle "$probe_path" 2>/dev/null |
-            sed -n "/$PROBE_SYMBOL_FILTER/p" |
-            tail -n "${MAX_LINES:-80}"
+          inspect_probe() {
+            target="$1"
+            symbol_filter="$2"
+            probe_path="build/linux/x86_64/debug/$target"
+            if [ ! -x "$probe_path" ]; then
+              echo "failed to locate size probe binary: $probe_path" >&2
+              exit 1
+            fi
+            echo "== $target =="
+            echo "-- binary --"
+            ls -lh "$probe_path"
+            echo
+            echo "-- size --"
+            size "$probe_path" || true
+            echo
+            echo "-- symbols --"
+            nm -S --size-sort --demangle "$probe_path" 2>/dev/null |
+              sed -n "/$symbol_filter/p" |
+              tail -n "${MAX_LINES:-80}"
+            echo
+          }
+
+          inspect_probe binary_size_tensor_probe typetorch
+          inspect_probe binary_size_tensor_checked_probe typetorch
+          inspect_probe binary_size_tensor_unsafe_probe typetorch
+          inspect_probe binary_size_libtorch_probe typetorch_binary_size_libtorch_probe
 
   package-consumer:
     name: Test add_requires() package consumption
